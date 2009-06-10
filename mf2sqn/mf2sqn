@@ -1,0 +1,844 @@
+#!/usr/bin/perl -w -- -*-Perl-*-
+
+##############################################################################
+#
+#                                  mf2sqn
+#
+# DESCRIPTION:
+# mf2sqn - Converts an OGMP masterfile into a Sequin file in order to
+# make submission 
+#
+##############################################################################
+
+#############################################################################
+#                                 mf2tbl                                    #
+#                                                                           #
+#                          Copyright (C) 2008                               #
+#                         Departement de Biochimie,                         #
+#                          Universite de Montreal,                          #
+#                     C.P. 6128, succursale Centre-ville,                   #
+#                      Montreal, Quebec, Canada, H3C 2J7                    #
+#                                                                           #
+#                Programming:  Natacha Beck, Pierre Rioux.                  #
+#                Old version programming: David To, Thomas Hoellinger.      #
+#                Project management: Franz Lang (OGMP)                      #
+#                E-Mail information: Franz.Lang@Umontreal.ca                #
+#                                                                           #
+#     This software is distributed under the GNU GENERAL PUBLIC LICENSE, as #
+# published by the Free Software Foundation. A copy of version 2 of this    #
+# license should be included in a file called COPYING. If not, write to the #
+# Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
+#############################################################################
+#
+#    $Id: mf2sqn,v 1.1 2009/06/10 20:55:46 nbeck Exp $
+#
+#    $Log: mf2sqn,v $
+#    Revision 1.1  2009/06/10 20:55:46  nbeck
+#    Initial check-in.
+#
+#
+
+##########################
+# Initialization section #
+##########################
+
+require 5.00;
+use strict;
+use vars qw( $VERSION $RCS_VERSION );
+use PirObject;                                        # Pir module treatment 
+use IO::File;
+use File::Path;
+use File::Copy;
+use File::Basename;
+use Cwd;
+
+BEGIN {
+# Load PirObject
+PirObject->LoadDataModel("Masterfile");               # Masterfile object
+} # End Begin
+
+# Default umask
+umask 027;
+
+# Program's name and version number.
+$RCS_VERSION='$Id: mf2sqn,v 1.1 2009/06/10 20:55:46 nbeck Exp $';
+($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
+my ($BASENAME) = ($0 =~ /([^\/]+)$/);
+
+# Get login name
+my $USER = getpwuid($<) or getlogin or die "Can't find USER from environment!\n";
+
+##################################
+# Global variables and constants #
+##################################
+
+$|=1;
+my $DEBUG=0;
+my $TMPDIR="/tmp/$BASENAME.$$";
+my $GENE_NAME_FILE="/share/supported/apps/ogmp/lib/gene_names.lst";
+my $SUB_INFO_MODEL="/share/supported/apps/mf2sqn/SubInfo";
+my $SUBMITTERLANG="/share/supported/apps/mf2sqn/SubmitterLang.sbt";
+my $SUBMITTERBURGER="/share/supported/apps/mf2sqn/SubmitterBurger.sbt";
+my $TBL2ASN='/share/supported/bin/tbl2asn';
+my $GENE_NAME={};
+
+# Basic command-line args
+my $MASTERFILE="";          # The name of a file containing a genome in MF format
+my $MF_NAME="";             # The name of masterfile
+my $SUBINFOFILE="";         # The name of a file containing the submission information
+my $AUTHOR="";              # Author name (Lang or Burger)
+my $AUTHORFILE="";          # The name of a file containing autor information
+my $CREATEGB=0;             # Use in order tyo create Genbank file
+
+my $SUBINFO={};
+my $ACCEPT_GENOME  = {   O  => 'apicoplast',
+                         C  => 'chloroplast',
+                         H  => 'chromoplast',
+                         Y  => 'cyanelle',
+                         E  => 'extrachromosomal',
+                         G  => 'genomic',
+                         K  => 'kinetoplast',
+                         L  => 'leucoplast',
+                         A  => 'macronuclear',
+                         M  => 'mitochondrion',
+                         N  => 'nucleomorph',
+                         D  => 'plasmid',
+                         P  => 'plastid',
+                         R  => 'proplastid',
+                         W  => 'proviral',
+                         U  => 'unknown' };
+my $ACCEPT_GCODE    = { '1' =>  'Standard',
+                        '2' => 'Vertebrate Mitochondrial',
+                        '3' => 'Yeast Mitochondrial',
+                        '4' => 'Mold Mitochondrial',
+                        '5' => 'Invertebrate Mitochondrial',
+                        '6' => 'Ciliate Dasycladacean Hexamita Nuclear',
+                        '9' => 'Echinoderm Flatworm Mitochondrial',
+                       '10' => 'Euplotid Nuclear',
+                       '11' => 'Bacterial and Plant Plastid',
+                       '12' => 'Alternative Yeast Nuclear',
+                       '13' => 'Ascidian Mitochondrial',
+                       '14' => 'Alternative Flatworm Mitochondrial',
+                       '15' => 'Blepharisma Macronuclear',
+                       '16' => 'Chlorophycean Mitochondrial',
+                       '21' => 'Trematode Mitochondrial',
+                       '22' => 'Scenedesmus Obliquus Mitochondrial',
+                       '23' => 'Thraustochytrium Mitochondrial'};
+my $ACCEPT_MOLCLASS = { D => 'DNA',
+                        R => 'RNA',
+                        N => 'NUCLEOTIDE',
+                        P => 'PROTEIN',
+                        O => 'OTHER'};
+my $ACCEPT_MOLTYPE  = { G => 'genomic',
+                        E => 'pre mrna',
+                        M => 'mrna',
+                        R => 'rrna',
+                        T => 'trna',
+                        S => 'snrna',
+                        C => 'scrna',
+                        P => 'peptide',
+                        O => 'OTHER GENETIC',
+                        X => 'GENOMIC MRNA'};
+my $ACCEPT_TOPO     = { C => 'CIRCULAR',
+                        L => 'LINEAR',
+                        C => 'CIRCULAR',
+                        T => 'TANDEM',
+                        O => 'OTHER'};
+$SUBINFO = { 'GENOME'         => $ACCEPT_GENOME->{'M'},
+             'NUC_CODE'       => '1',
+             'MIT_CODE'       => '1',
+             'MOLCLASS'       => $ACCEPT_MOLCLASS->{'D'},
+             'MOLTYPE'        => $ACCEPT_MOLTYPE->{'G'},
+             'TOPOLOGY'       => $ACCEPT_TOPO->{'C'}};
+my $MODIFIERS       = { 'TITLE'        => '1',
+                        'GENOME'       => 'location',
+                        'MIT_CODE'     => 'mgcode',
+                        'NUC_CODE'     => 'gcode',
+                        'SCIENTIFIC'   => 'organism',
+                        'STRAIN'       => '1',
+                        'COMMENT'      => '1',
+                        'MOLCLASS'     => 'mol',
+                        'MOLTYPE'      => 'type',
+                        'TOPOLOGY'     => 'topology'};
+my $INFO = {};
+
+# Advanced command-line args
+
+#####################################
+# Command-Line Arguments Processing #
+#####################################
+
+sub Usage {
+    my $message = shift || "";
+    print STDERR <<USAGE;
+Basic usage: $BASENAME [-d] -a author -m masterfile
+
+where: -a author     :  Accepted values : Lang or Burger.
+                        Looked in '/share/supported/apps/mf2sqn/SubmitterLang.sbt'
+                        or in '/share/supported/apps/mf2sqn/SubmitterBurger.sbt'
+                        Each file contain a text ASN.1 Submit-block object.
+                        The Submit-block contains contact information (to whom questions
+                        on the submission can be addressed) and a submission citation (which lists
+                        the authors who get scientific credit for the sequencing).
+                        
+       -m masterfile : Is the masterfile for submission.
+       
+       -d            : Create GenBank file in output.
+
+USAGE
+    print STDERR "\n$message\n" if $message;
+    exit 20;
+}
+
+&Usage if scalar(@ARGV) == 0;
+
+for (;@ARGV;) {
+    my ($opt,$arg) = ($ARGV[0] =~ /^-([\@mad])(.*)$/o);
+    last if ! defined $opt;
+    if ($opt =~ /[\@ma]/ && $arg eq "") {
+        if (@ARGV < 2) {
+            print STDERR "Argument required for switch \"-$opt\".\n";
+            exit 1;
+        }
+        shift @ARGV;
+        $arg=$ARGV[0];
+    }
+
+    $DEBUG=(defined($arg) ? $arg : 1)             if $opt eq '@';
+    $MASTERFILE=$arg                              if $opt eq 'm';
+    $AUTHOR=$arg                                  if $opt eq 'a';
+    $CREATEGB=1                                   if $opt eq 'd';
+    shift @ARGV;
+}
+
+###########################################
+# Validate remaining command-line options #
+###########################################
+
+&Usage( "Error: the masterfile '$MASTERFILE' supplied with -m doesn't exist\n" )
+    unless -f "$MASTERFILE";
+$MF_NAME = basename($MASTERFILE);
+
+&Usage( "Accepted value for author is Lang or Burger")
+    if lc($AUTHOR) ne "lang" && lc($AUTHOR) ne 'burger';
+$AUTHORFILE= lc($AUTHOR) eq "lang" ? $SUBMITTERLANG : $SUBMITTERBURGER;
+die "The author file '$AUTHORFILE' doesn't exist\n"
+    unless -f "$AUTHORFILE";
+
+################
+# Trap Signals #
+################
+
+sub SigCleanup { # private
+     die "\nExiting: received signal \"" . $_[0] . "\".\n";
+     # Note that some cleanup will be performed in the END block at this point.
+}
+$SIG{'INT'}  = \&SigCleanup;
+$SIG{'TERM'} = \&SigCleanup;
+$SIG{'HUP'}  = \&SigCleanup;
+$SIG{'QUIT'} = \&SigCleanup;
+$SIG{'PIPE'} = \&SigCleanup;
+
+###############################
+#   M A I N   P R O G R A M   #
+###############################
+
+# CREATE THE TMPDIR #
+mkdir($TMPDIR,0700) or die "Error: can't create work directory '$TMPDIR': $!\n";
+
+# LOAD THE MF #
+my $PIRMASTER    = PirObject::Masterfile->ObjectFromMasterfile($MASTERFILE);
+my $CONTIGS      = $PIRMASTER->get_contigs();
+my $NB_CONTIGS   = scalar(@$CONTIGS);
+
+my $STEP = 1;
+my $to_print = ($NB_CONTIGS > 1 ? "Masterfile '$MASTERFILE' present $NB_CONTIGS contigs\n" 
+                       : "Masterfile '$MASTERFILE' present $NB_CONTIGS contig\n");
+print $to_print;
+print "$STEP) Look for SubInfo file\n";
+&LookForSubInfo();
+$STEP++;
+print "$STEP) Parse information of SubInfo file\n";
+&GetInfo();
+$STEP++;
+print "$STEP) Create fasta file for tbl2asn\n";
+&MakeFastaFile();
+$STEP++;
+print "$STEP) Create table file for tbl2asn\n";
+&ParseGeneList();
+&CreateTableFile();
+$STEP++;
+print "$STEP) Run tbl2asn\n";
+&RunTBL2ASN();
+
+exit 0;
+
+END { 
+    # With exit, programme will go here
+    # Cleanup temp directory when program exits.
+    return unless defined($TMPDIR) and $TMPDIR =~ m#^/tmp/#;
+    print "Temporary work directory $TMPDIR NOT cleaned up ...\n" if $DEBUG; 
+    rmtree($TMPDIR) unless $DEBUG;
+}
+
+#############################
+#   S U B R O U T I N E S   #
+#############################
+
+sub LookForSubInfo {
+    my $current_wd = getcwd();
+    my $subInfoName = "$MF_NAME.subInfo";
+    if (! (-r ($subInfoName))){
+       copy($SUB_INFO_MODEL, $subInfoName)  or die "File '$SUB_INFO_MODEL' cannot be copied in '$subInfoName'.\n";
+       print "\nYou don't have local copy of subInfo file for '$MF_NAME'.\n"
+            ."A local copy was made in '$subInfoName'.\n"
+            ."Perhaps you need to make some modification.\n"
+            ."After modification just re-run mf2sqn.\n\n";
+       exit 1;
+    }
+    $SUBINFOFILE = $subInfoName;
+}
+
+# Get input info
+
+sub GetInfo {
+   my $INFO_F = new IO::File "<$SUBINFOFILE" 
+        or die "Can not open the subinfo file '$SUBINFOFILE': $!\n";
+    
+    my $Before_tag = 1;
+    my $concat = "";
+    my $info   = {};
+    while (my $line = <$INFO_F>) {
+        next if $line =~ m/^#/;
+        next if $line =~ m/^\%SUBINFO\s*=\s*\(/;
+        chomp($line);
+        $concat .= $line unless $line =~ m/\);/;
+    }
+    
+    $concat =~ s/\}/\}\n/g;
+    
+    my @line_for_hash = split("\n",$concat);
+    foreach my $line_hash (@line_for_hash){
+        my $key = $1 if $line_hash =~ m/^\s*\'(.+)\'\s*=>\s*{/;
+        my $st_value = $1 if $line_hash =~ m/\{(.+)\}/;
+           $st_value =~ s/\'\s+\'/\'\n\'/g;
+        my @line_for_sub_hash = split(/\n/,$st_value); 
+        
+        my $sub_hash = {};
+        foreach my $line_sub (@line_for_sub_hash){
+            die "Can't parse line '$line_sub' in '$SUBINFOFILE'\n" 
+                if !($line_sub =~ m/\s*\'.+\'\s*=>\s*\'.*\'/);
+            my ($sub_key,$sub_value) = ($1,$2) if $line_sub =~ m/\s*\'(.+)\'\s*=>\s*\'(.*)\'/;
+            $sub_hash->{$sub_key} =  $sub_value;
+        }
+        $INFO->{$key} = $sub_hash;
+    }
+    
+    &CheckInfoEntry();
+    $INFO_F->close();
+}
+
+sub CheckInfoEntry {
+
+    while (my  ($tag, $hash) = each %$INFO ) {
+        while (my  ($field, $value) = each %$hash ) {
+            &CheckFieldAndComp($field,"genome"      ,$ACCEPT_GENOME,$value);
+            &CheckFieldAndComp($field,"nuc_code"    ,$ACCEPT_GCODE,$value);
+            &CheckFieldAndComp($field,"mit_code"    ,$ACCEPT_GCODE,$value);
+            &CheckFieldAndComp($field,"molclass"    ,$ACCEPT_MOLCLASS,$value);
+            &CheckFieldAndComp($field,"moltype"     ,$ACCEPT_MOLTYPE,$value);
+            &CheckFieldAndComp($field,"topology"    ,$ACCEPT_TOPO,$value);
+            $SUBINFO->{'SCIENTIFIC'} = $value if lc($field) eq "scientific";
+            $SUBINFO->{'STRAIN'}     = $value if lc($field) eq "strain";
+            $SUBINFO->{'TITLE'}      = $value if lc($field) eq "title";
+            $SUBINFO->{'COMMENT'}    = $value if lc($field) eq "comment";
+        }
+    }
+}
+
+sub CheckFieldAndComp {
+    my ($field,$field_to_check,$accept_values,$value) = @_;
+    
+    if (lc($field) eq $field_to_check){
+        if (!($accept_values->{$value})){
+            my $list = "";
+                while (my ($ab,$complet) = each %$accept_values){
+                    $list .= "$ab,";
+                }
+            $list =~ s/,$/\./;
+            die "Accepted value for field 'COMPLETE' in $SUBINFOFILE is : $list\n";
+        }
+        $SUBINFO->{'GENOME'}   = $ACCEPT_GENOME->{$value}   if lc($field) eq "genome";
+        $SUBINFO->{'NUC_CODE'} = $value                     if lc($field) eq "nuc_code";
+        $SUBINFO->{'MIT_CODE'} = $value                     if lc($field) eq "mit_code";
+        $SUBINFO->{'MOLCLASS'} = $ACCEPT_MOLCLASS->{$value} if lc($field) eq "molclass";
+        $SUBINFO->{'MOLTYPE'}  = $ACCEPT_MOLTYPE->{$value}  if lc($field) eq "moltype";
+        $SUBINFO->{'TOPOLOGY'} = $ACCEPT_TOPO->{$value}     if lc($field) eq "topology";
+    }
+}
+
+
+# CreateFastaFile #
+
+sub MakeFastaFile {
+    my $count      = 0;
+    my $format_seq = "";
+    my $file_name  = "$MF_NAME.fsa";
+    foreach my $contig (@$CONTIGS) {
+        my $seq  = lc($contig->get_sequence());
+           $seq  =~ s/!//g;
+        my $name = $contig->get_name();        
+        die "Sequence of contig '$name' contain bad caracters" 
+            if $seq =~ m/[^acgturykmswbdhvnx]/; #According with UPAC
+        $format_seq .= &CreateHeader($count);
+        for (my $i = 0 ; $i <= length($seq); $i += 80 ) {
+            my $rest_length = length($seq) - $i;
+            if ( $rest_length <= 80 ) {
+                $format_seq .= substr($seq, $i , $rest_length);
+                $format_seq .= "\n";
+            }
+            else {
+                $format_seq .= substr($seq, $i , 80);
+                $format_seq .= "\n";
+            }
+        }
+        $format_seq .= "\n";
+        $count++;
+    }
+    my $fasta_file = "$TMPDIR/$file_name";
+    my $FF = new IO::File ">$fasta_file" or die "Cannot open : $fasta_file\n";
+    print $FF "$format_seq";
+    $FF->close();
+}
+
+sub CreateHeader {
+    my $ct = shift;
+    
+    my $format_header  = ">C_$ct ";
+    my $modifiers_list = "";
+    while (my  ($tag, $hash) = each %$INFO ) {
+        while (my  ($field, $value) = each %$hash ) {
+            my $modifier = $MODIFIERS->{$field};
+            $value       = $SUBINFO->{$field};
+            next if $modifier eq '1';
+            die "Modifier '$modifier' is not accepted in fasta header\n"
+                if !$modifier;
+            die "Field '$field' must have a value in subinfo file '$SUBINFOFILE'\n" 
+                if !$value;
+            next if $modifier eq "strand";
+            $modifiers_list .= "[$modifier=$value]" if $modifier;
+        }
+    }
+    $format_header .= "$modifiers_list ";
+    my $title = $SUBINFO->{'TITLE'};
+    $format_header .= "$title\n";
+    return $format_header;
+    
+}
+
+# ParseGeneList #
+
+sub ParseGeneList {
+
+    open(GF,"<$GENE_NAME_FILE") || die "Can't read file \"$GENE_NAME_FILE\": $!\n";
+    my @G_FILE=<GF>;
+    close(GF);
+    @G_FILE=grep(!/^\s*#|^\s*$/,@G_FILE);
+    foreach my $line (@G_FILE) {
+        chomp($line);
+        my @fields=split(/\|/,$line);
+        if (@fields != 6) {
+        print "Error in $GENE_NAME_FILE: six fields needed at\n-> $line\n";
+        next;
+        }
+    grep(s/^\s+// && 0,@fields);  # Remove leading spaces
+    grep(s/\s+$// && 0,@fields);  # Remove trailing spaces
+    grep(s/^-$//  && 0,@fields);  # Replace dashes by empty strings.
+    my $names        = $fields[0];
+    my $genetype     = $fields[1] || "Unknown";
+    my $geneproduct  = $fields[2] || "";
+    my $genefunction = $fields[3] || "";
+    my $genecomplex  = $fields[4] || "";
+    my $geneecnumber = $fields[5] || "";
+    my @names=split(/=/,$names);
+    my $prefered=$names[0];
+    foreach my $name (@names) {
+        my $lname="\L$name";
+        $geneproduct = "Aspartate" if lc($geneproduct) =~ m/aspartic acid/;
+        $geneproduct = "Glutamate" if lc($geneproduct) =~ m/glutamic acid/;
+        $GENE_NAME->{$lname} = { 'NAMES'     => $prefered,
+                                 'TYPES'     => $genetype,
+                                 'PRODUCTS'  => $geneproduct,
+                                 'FUNCTIONS' => $genefunction,
+                                 'COMPLEXES' => $genecomplex,
+                                 'ECNUMBERS' => $geneecnumber};
+         }
+    }
+}
+
+
+# CreateTableFile #
+
+sub CreateTableFile {
+    my $count = 0;
+    my $file_name   = "$MF_NAME.tbl";
+    my $feature_tab = "";
+    foreach my $contig (@$CONTIGS) {
+        my $annotations       = $contig->get_annotations();
+        my $seq               = $contig->get_sequence();
+        my $annots_no_comment = [];
+           $feature_tab      .= ">Feature C_$count Table1\n";
+        
+        my ($cg_orfs,$ct_orfs)   = ({},{});
+        
+        foreach my $annot (@$annotations) {
+            my $type = $annot->get_type();
+            my $name = $annot->get_genename;
+            next if $type eq "C";
+            $cg_orfs->{$name}++ if $name =~ m/orf\d+/;
+            push(@$annots_no_comment,$annot);
+        }
+        
+        foreach my $annot (@$annots_no_comment) {
+            next if $annot->get_type() ne "G";
+            my $start = $annot->get_startpos();
+            my $end   = $annot->get_endpos();
+            my $name  = $annot->get_genename();
+            next if $name =~ m/citation/i;
+            
+            # Annotation of gene
+            $ct_orfs->{$name}++ if $cg_orfs->{$name} && $cg_orfs->{$name} > 1;
+            my $annot_who_overlap = &WhatOverlapsThis($start,$end,$contig);            
+            $feature_tab = &AddInfoForGene($annot_who_overlap,$feature_tab,$name,$ct_orfs->{$name},$contig);
+        }
+        $feature_tab .= "\n";
+        $count++;
+    }
+    my $table_file = "$TMPDIR/$file_name";
+    my $TF = new IO::File ">$table_file" or die "Cannot open : $table_file\n";
+    print $TF "$feature_tab";
+    $TF->close();
+}
+
+sub AddInfoForGene {
+    my ($annot_who_overlap,$feature_tab,$name,$orfnum,$contig) = @_;
+    
+    foreach my $annotation_who_overlap (@$annot_who_overlap){
+        my ($CDS_info,$toAdd,$EI_info,$id) = ("","","","");
+        my ($exons,$introns) = ({},{});
+        foreach my $feature_who_overlap (@$annotation_who_overlap) {
+            my $annot          = $feature_who_overlap->[2];
+            my $annot_name     = $annot->get_genename();
+            next if $annot_name  =~ m/citation/i;
+            my $a_type         = $annot->get_type();
+            my $start          = $annot->get_startpos();
+            my $end            = $annot->get_endpos();
+            my $startline      = $annot->get_startline();
+            my $isLast         = ( !$feature_who_overlap->[4] || $feature_who_overlap->[4] ne "LAST"  ? 0 : 1);
+            my $isFirst        = ( !$feature_who_overlap->[4] || $feature_who_overlap->[4] ne "FIRST" ? 0 : 1);
+               $id             = $1 if $startline =~ m#(G-\S+)\s+# && $a_type eq "G";
+            my $add            = $orfnum ? "_$orfnum" : "";
+               $add            = !$add && $startline =~ m/G-\S+_(\d+)/ ? $1 : $add;
+            my $ac             = $annot->get_startline() =~ m/G-trn.\((.+)\)/ ? lc($1) : "" ;
+               $ac             =~ tr/u/t/;
+               $ac             = "\($ac\)" if $ac;
+            
+            my $lname          = lc($name);
+            my $product        = $GENE_NAME->{$lname}->{"PRODUCTS"}  || "";
+               $product        = "tRNA X" if $lname =~ m/trnx/;
+            my $EC_number      = $GENE_NAME->{$lname}->{"ECNUMBERS"} || "";
+            my $type           = $GENE_NAME->{$lname}->{"TYPES"}     || "";
+               $type           = $type eq "protein" ? "CDS" : $type;
+               ($product,$type)= ("hypothetical protein","CDS") if $name =~ m/orf/;
+            if ($name eq $annot_name) {
+                if ($a_type eq "G") {
+                    my $anticodon = &LocateAc($annot,$contig) if $ac;
+                    $feature_tab .= "$start\t$end\tgene\n";
+                    $feature_tab .= "\t\t\tgene\t$name$add$ac\n";
+                    $toAdd .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|$id\n";
+                    $toAdd .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
+                    $toAdd .= $anticodon                      if $anticodon;
+                    if (scalar(@$annotation_who_overlap) == 1) {
+                        $CDS_info    .= "$start\t$end\t$type\n";
+                        $CDS_info    .= $toAdd;
+                    }
+                }
+                elsif ($a_type eq "E") {
+                    next unless $startline =~ m#G-(\S+)-E(\d+)#;
+                    my $exnum = $2;
+                    $exons->{$exnum} = { 'start' => $start  , 'end'  => $end,
+                                         'first' => $isFirst, 'last' => $isLast, 'type' => $type};
+                }
+                elsif ($a_type eq "I"){
+                    next unless $startline =~ m#G-(\S+)-I(\d+)#;
+                    my $innum = $2;
+                    my $group  = $annot->get_introntype();
+                    $introns->{$innum} = { 'start' => $start  , 'end'  => $end,
+                                           'group' => $group};
+                }
+            }
+        }
+        for my $num_e ( sort {$a<=>$b} keys %$exons) {
+            my $start   = $exons->{$num_e}->{'start'};
+            my $end     = $exons->{$num_e}->{'end'};
+            my $isFirst = $exons->{$num_e}->{'first'};
+            my $isLast  = $exons->{$num_e}->{'last'};
+            my $type    = $exons->{$num_e}->{'type'};
+            
+            $CDS_info .=  $isFirst ? "$start\t$end\t$type\n"
+                                    : "$start\t$end\n";
+                                    
+            $CDS_info .= $toAdd if ($isLast);
+            $EI_info   .= "$start\t$end\texon\n";
+            $EI_info   .= "\t\t\tnumber\t$num_e\n";
+        }
+
+        foreach my $num_i ( sort {$a<=>$b} keys %$introns)  {
+            my $start   = $introns->{$num_i}->{'start'};
+            my $end     = $introns->{$num_i}->{'end'};
+            my $group   = $introns->{$num_i}->{'group'} || "";
+            
+            $EI_info   .= "$start\t$end\tintron\n";
+            $EI_info   .= "\t\t\tnumber\t$num_i\n";
+            $EI_info   .= "\t\t\tnote\tGroup $group\n" if $group;
+        }
+        $feature_tab .= $CDS_info;
+        $feature_tab .= $EI_info;
+    }
+    return $feature_tab;
+}
+
+sub WhatOverlapsThis {
+    my ($wstart,$wend,$contig) = @_;
+
+    my $contiglen  = $contig->get_sequencelength();
+    my $annotlist  = $contig->get_annotations() || [];
+    
+    ($wstart, $wend) = ($wend, $wstart) if $wend < $wstart;
+
+    my @GEI_annots = grep( $_->get_type() =~ m#^[GEI]$# , @$annotlist);
+    my %RanksGEI   = ( G => 0, E => 1, I => 2 );
+    @GEI_annots    = sort { $a->get_genename() cmp $b->get_genename()
+                                                or
+                     $RanksGEI{$a->get_type()} <=> $RanksGEI{$b->get_type()}
+                                                or
+                            $a->get_startpos() <=> $b->get_startpos();
+                           } @GEI_annots;
+
+    my $groups = [];
+    foreach my $annotation (@GEI_annots) {
+        my $genename  = $annotation->get_genename(); # Does NOT contain the _1
+        my $type      = $annotation->get_type();
+        my $startline = $annotation->get_startline();
+        my $start     = $annotation->get_startpos();
+        my $end       = $annotation->get_endpos();
+        my $dir       = $annotation->get_direction() || "==>";
+
+        my ($ostart,$oend) = ($start,$end); # Strandless interval
+           ($ostart,$oend) = ($end,$start) if $end < $start;
+
+        if ($type eq "G") {
+            next unless # No overlap? next
+                &OverlappingRegions($contiglen,$start,$end,$dir,$wstart,$wend,">"); # Real dir of orf not important
+            push(@$groups, [ [ $ostart, $oend, $annotation ] ] );
+            next;
+        }
+
+        # For introns and exons
+        foreach my $group (@$groups) {
+            my $geneinfo = $group->[0]; # First entry of group is always a gene object
+            my $gi_name  = $geneinfo->[2]->get_genename();
+            next unless $gi_name eq $genename;
+            my $gstart = $geneinfo->[2]->get_startpos();
+            my $gend   = $geneinfo->[2]->get_endpos();
+            my $gdir   = $geneinfo->[2]->get_direction();
+            next unless # if E or I is outside of gene
+                &OverlappingRegions($contiglen,$start,$end,$dir,$gstart,$gend,$gdir);
+            push(@$group, [ $ostart, $oend, $annotation ] );
+            #  last; # commented out in case for some reason an exon overlap multiple genes with the same names!
+        } # End foreach $group
+    } # End foreach $annotation
+
+    # Now, flag the first and last exon of each group in field ->[3] of each group
+    foreach my $group (@$groups) {
+        $group->[0]->[3] = "";  # Flag set to false for first entry
+        if (@$group == 1) {     # Gene with no introns
+            $group->[0]->[3] = "YES";
+            next;
+        }
+        my $maxexnum=0;
+        my $maxexinfo="";
+        for (my $i=1;$i<@$group;$i++) {
+            my $info = $group->[$i];
+            $info->[3] = "";  # Flag set to false
+            next unless $info->[2]->get_type() eq "E";
+            my $startline = $info->[2]->get_startline() || "";
+            next unless $startline =~ m#G-(\S+)-E(\d+)#;
+            my $exnum = $2;
+            $info->[3] = "YES"   if $exnum == 1; # First exon flaged
+            $info->[4] = "FIRST" if $exnum == 1; # First exon flaged
+            $info->[4] = ""      if $exnum != 1; # First exon flaged
+            if ($exnum > $maxexnum) {
+                $maxexnum = $exnum;
+                $maxexinfo = $info;
+            }
+        }
+        if ($maxexinfo) {             # Should always be true here
+            $maxexinfo->[3] = "YES";  # This is the last exon of the group
+            $maxexinfo->[4] = "LAST"; # This is the last exon of the group
+        }
+    }
+    $groups;
+} # End sub
+
+sub OverlappingRegions {
+    # Works even for circular genomes and regions that span the gap
+    my ($seqlen,$start1,$end1,$dir1,$start2,$end2,$dir2) = @_;
+
+    my $spansgap1 = (($dir1 =~ m#>#) xor ($start1 <= $end1)); # true means spans the gap
+    my $spansgap2 = (($dir2 =~ m#>#) xor ($start2 <= $end2)); # true means spans the gap
+
+    if ($spansgap1) {
+        if ($dir1 =~ m#>#) {
+            $end1 += $seqlen;
+        } 
+        else {
+            $start1 += $seqlen;
+        }
+    }
+
+    if ($spansgap2) {
+        if ($dir2 =~ m#>#) {
+            $end2 += $seqlen;
+        }
+        else {
+            $start2 += $seqlen;
+        }
+    }
+
+    ($start1,$end1) = ($end1,$start1) if $start1 > $end1;
+    ($start2,$end2) = ($end2,$start2) if $start2 > $end2;
+
+    # Test for overlap
+    return 1 if ! ($end1 < $start2 || $start1 > $end2);
+    return 0 if $spansgap1 == $spansgap2; # same spanning sit -> we're done
+
+    if (! $spansgap1) {
+        $start1 += $seqlen;
+        $end1   += $seqlen;
+    }
+
+    if (! $spansgap2) {
+        $start2 += $seqlen;
+        $end2   += $seqlen;
+    }
+
+    # Test for overlap again, new situation
+    return 1 if ! ($end1 < $start2 || $start1 > $end2);
+    return 0; # really, no overlap
+} # End sub
+
+sub LocateAc {
+    my ($annot,$contig) = @_;
+    
+    my $isMinus = ( $annot->get_direction eq "==>" ? 0 : 1);
+    my $cg_len  = $contig->get_sequencelength();
+    
+    my $seq     = $contig->get_sequence();
+       $seq     =~ tr/ACGT/TGCA/ if $isMinus;
+       $seq     = reverse $seq   if $isMinus;
+    
+    my $o_start = $annot->get_startpos();
+    my $o_end   = $annot->get_endpos();
+    my $name    = $annot->get_genename();
+    my $ac_type = $1 if lc($name) =~ m/trn(.)/;
+    print "Can't defined anticodon type for $name at pos : $o_start..$o_end\n" if !$ac_type;
+    my $ac      = lc($1) if $annot->get_startline() =~ m/G-trn.\((...)\)/;
+       $ac      =~ tr/u/t/;
+    print "Can't defined anticodon sequence for $name at pos : $o_start..$o_end\n" if length($ac) != 3;
+    # Reverse for minus strand
+    my $start   = $isMinus ? $cg_len + 1 - $o_start : $o_start;
+    my $end     = $isMinus ? $cg_len + 1 - $o_end   : $o_end;
+    
+    # Extract trna sequence
+    my ($nb_ex,$start_full_seq) = (0,0);
+    while (){
+        $start_full_seq = $start + $nb_ex - 1;
+        my $prev_nb_ex = $nb_ex;
+        my $seq_before_trna = substr($seq,0,$start_full_seq);
+        my $only_ex         = $seq_before_trna;
+           $only_ex         =~ s/[^!]//g;
+           $nb_ex           = length($only_ex);
+       last if $nb_ex == $prev_nb_ex || $nb_ex == 0;
+    }
+    $start_full_seq++;
+    my $trna_len = $end - $start + 1;
+    $nb_ex    = lc(substr( $seq,$start_full_seq-1,$trna_len));
+    $nb_ex    =~ s/[^!]//g;
+    $nb_ex    = length($nb_ex);
+    my $trna_seq  = lc(substr( $seq,$start_full_seq-1,$trna_len+$nb_ex));
+    
+    
+    # Define AC position
+    my $ac_start = index($trna_seq,"!$ac!");
+    print "Can't defined anticodon for $name at pos : $o_start..$o_end\n" if $ac_start == -1;
+       $ac_start = $start + $ac_start;
+    my $ac_end   = $ac_start + 2;
+    
+    # Reverse for minus strand
+    $ac_start   = $cg_len + 1 - $ac_start if $isMinus;
+    $ac_end     = $cg_len + 1 - $ac_end   if $isMinus;
+    $ac         =~ tr/t/u/;
+    
+    my $anticodon = $ac_start == -1 ? "\t\t\tanticodon\t\(pos:$ac_start..$ac_end,aa:$ac_type\)\n" : "";
+    return ($anticodon);
+}
+
+# RunTBL2ASN
+
+sub RunTBL2ASN {
+    my $comment = $SUBINFO->{'COMMENT'} || "";
+    my $cmd  = "$TBL2ASN -s -v T -b T -t $AUTHORFILE -u";
+       $cmd .= " -y \"$comment\"" if $comment;
+       $cmd .= " -p $TMPDIR";
+    system("$cmd");
+    
+    my $sqnFile = "$TMPDIR/$MF_NAME.sqn";
+    my $gbFile  = "$TMPDIR/$MF_NAME.gbf";
+    my ($sqnOutput,$gbOutput) = &DefineOutputName();
+    copy($sqnFile, $sqnOutput) or die "File '$sqnFile' cannot be copied in '$sqnOutput'.\n";
+    my @sqnOut = split(/\//, $sqnOutput);
+    $sqnOutput = $sqnOut[-1];
+    print "\nDumping Sequin file in '$sqnOutput'\n";
+    if ($CREATEGB == 1) {
+        copy($gbFile,  $gbOutput)  or die "File '$gbFile' cannot be copied in '$gbOutput'.";
+        my @gbOut = split(/\//, $gbOutput);
+        $gbOutput = $gbOut[-1];
+        print "Dumping GenBank file in '$gbOutput'\n";
+    }
+}
+
+sub DefineOutputName {
+    my $current_wd = getcwd();
+    
+    my $count = 0;
+    my $sqnOutput_pref = "$current_wd/$MF_NAME";
+    my $sqnOutput_suff = ".sqn";
+    my $sqnOutput      = $sqnOutput_pref.$sqnOutput_suff;
+    
+    while (-r ($sqnOutput)) {
+        $count++;
+        $sqnOutput = $sqnOutput_pref."_".$count.$sqnOutput_suff;
+    }
+    
+       $count = 0;
+    my $gbOutput_pref = "$current_wd/$MF_NAME";
+    my $gbOutput_suff = ".gbf";
+    my $gbOutput      = $gbOutput_pref.$gbOutput_suff;
+    
+    while (-r ($gbOutput)) {
+        $count++;
+        $gbOutput = $gbOutput_pref."_".$count.$gbOutput_suff;
+    }
+    return($sqnOutput,$gbOutput);
+}
