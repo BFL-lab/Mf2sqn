@@ -11,7 +11,7 @@
 ##############################################################################
 
 #############################################################################
-#                                 mf2tbl                                    #
+#                                 mf2sqn                                    #
 #                                                                           #
 #                          Copyright (C) 2008                               #
 #                         Departement de Biochimie,                         #
@@ -30,9 +30,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.1 2009/06/10 20:55:46 nbeck Exp $
+#    $Id: mf2sqn,v 1.2 2009/06/16 15:35:18 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.2  2009/06/16 15:35:18  nbeck
+#    Added support for qualifiers, except for citation and trans-spliced.
+#
 #    Revision 1.1  2009/06/10 20:55:46  nbeck
 #    Initial check-in.
 #
@@ -43,6 +46,7 @@
 ##########################
 
 require 5.00;
+require "/share/supported/apps/ogmp/lib/perl/ogmp/qualifs.pl";
 use strict;
 use vars qw( $VERSION $RCS_VERSION );
 use PirObject;                                        # Pir module treatment 
@@ -61,7 +65,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.1 2009/06/10 20:55:46 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.2 2009/06/16 15:35:18 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -76,11 +80,14 @@ $|=1;
 my $DEBUG=0;
 my $TMPDIR="/tmp/$BASENAME.$$";
 my $GENE_NAME_FILE="/share/supported/apps/ogmp/lib/gene_names.lst";
+my $QUALIF_FILE="/share/supported/apps/ogmp/lib/ogmp_qualifiers.lst";
 my $SUB_INFO_MODEL="/share/supported/apps/mf2sqn/SubInfo";
 my $SUBMITTERLANG="/share/supported/apps/mf2sqn/SubmitterLang.sbt";
 my $SUBMITTERBURGER="/share/supported/apps/mf2sqn/SubmitterBurger.sbt";
 my $TBL2ASN='/share/supported/bin/tbl2asn';
 my $GENE_NAME={};
+my $OGMP_QUALS_CLASSES= {};
+my $OGMP_QUALS_TEXTS={};
 
 # Basic command-line args
 my $MASTERFILE="";          # The name of a file containing a genome in MF format
@@ -266,6 +273,7 @@ print "$STEP) Create fasta file for tbl2asn\n";
 $STEP++;
 print "$STEP) Create table file for tbl2asn\n";
 &ParseGeneList();
+&ParseQualifList();
 &CreateTableFile();
 $STEP++;
 print "$STEP) Run tbl2asn\n";
@@ -476,6 +484,25 @@ sub ParseGeneList {
     }
 }
 
+sub ParseQualifList {
+    open(FH,"<$QUALIF_FILE") ||
+        die "Package Gene_Name: Can't read file \"$QUALIF_FILE\": $!\n";
+    my @FILE=<FH>;
+    close(FH);
+    
+    @FILE=grep(!/^\s*#|^\s*$/,@FILE);
+    
+    foreach my $line (@FILE) {
+        my $n=$line;
+        $n =~ /^(\S+)\s+(\S+)\s*(.*)\n?$/;
+        my ($qualifier,$classes,$text) = ($1,$2,$3);
+        die "Package OGMP_Qualifs: can't parse line:\n$line" unless $qualifier;
+        $text =~ s/\s+$//;
+        $OGMP_QUALS_CLASSES->{$qualifier}=$classes;
+        $OGMP_QUALS_TEXTS->{$qualifier}=$text if $text;
+        }
+}
+
 
 # CreateTableFile #
 
@@ -526,6 +553,7 @@ sub AddInfoForGene {
     foreach my $annotation_who_overlap (@$annot_who_overlap){
         my ($CDS_info,$toAdd,$EI_info,$id) = ("","","","");
         my ($exons,$introns) = ({},{});
+        my ($g_noStart,$g_noStop,$g_qualifiers) = ("","","");
         foreach my $feature_who_overlap (@$annotation_who_overlap) {
             my $annot          = $feature_who_overlap->[2];
             my $annot_name     = $annot->get_genename();
@@ -551,61 +579,133 @@ sub AddInfoForGene {
                $type           = $type eq "protein" ? "CDS" : $type;
                ($product,$type)= ("hypothetical protein","CDS") if $name =~ m/orf/;
             if ($name eq $annot_name) {
+                my ($qualifiers,$noStart,$noStop) = &TreatQualifiers($annot);
+                $noStart = "" if !$noStart;
+                $noStop  = "" if !$noStop;
                 if ($a_type eq "G") {
+                    ($g_noStart,$g_noStop,$g_qualifiers) = ($noStart,$noStop,$qualifiers);
                     my $anticodon = &LocateAc($annot,$contig) if $ac;
-                    $feature_tab .= "$start\t$end\tgene\n";
+                    $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\tgene\n";
                     $feature_tab .= "\t\t\tgene\t$name$add$ac\n";
-                    $toAdd .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|$id\n";
-                    $toAdd .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
-                    $toAdd .= $anticodon                      if $anticodon;
+                    $toAdd       .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|$id\n";
+                    $toAdd       .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
+                    $toAdd       .= $anticodon                      if $anticodon;
                     if (scalar(@$annotation_who_overlap) == 1) {
-                        $CDS_info    .= "$start\t$end\t$type\n";
-                        $CDS_info    .= $toAdd;
+                        $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
+                        $CDS_info .= $toAdd;
+                        $CDS_info .= $qualifiers if $qualifiers;
                     }
                 }
                 elsif ($a_type eq "E") {
                     next unless $startline =~ m#G-(\S+)-E(\d+)#;
                     my $exnum = $2;
                     $exons->{$exnum} = { 'start' => $start  , 'end'  => $end,
-                                         'first' => $isFirst, 'last' => $isLast, 'type' => $type};
+                                         'first' => $isFirst, 'last' => $isLast,
+                                         'type'  => $type,    'qualifiers' => $qualifiers};
                 }
                 elsif ($a_type eq "I"){
                     next unless $startline =~ m#G-(\S+)-I(\d+)#;
                     my $innum = $2;
                     my $group  = $annot->get_introntype();
                     $introns->{$innum} = { 'start' => $start  , 'end'  => $end,
-                                           'group' => $group};
+                                           'group' => $group, 'qualifiers' => $qualifiers};
                 }
             }
         }
         for my $num_e ( sort {$a<=>$b} keys %$exons) {
-            my $start   = $exons->{$num_e}->{'start'};
-            my $end     = $exons->{$num_e}->{'end'};
-            my $isFirst = $exons->{$num_e}->{'first'};
-            my $isLast  = $exons->{$num_e}->{'last'};
-            my $type    = $exons->{$num_e}->{'type'};
+            my $start      = $exons->{$num_e}->{'start'};
+            my $end        = $exons->{$num_e}->{'end'};
+            my $isFirst    = $exons->{$num_e}->{'first'};
+            my $isLast     = $exons->{$num_e}->{'last'};
+            my $type       = $exons->{$num_e}->{'type'};
+            my $qualifiers = $exons->{$num_e}->{'qualifiers'} || "";
             
-            $CDS_info .=  $isFirst ? "$start\t$end\t$type\n"
-                                    : "$start\t$end\n";
+            $CDS_info  .= $g_noStart.$start."\t".$g_noStop.$end."\t$type\n" if $isFirst;
+            $CDS_info  .= $g_noStart.$start."\t".$g_noStop.$end."\n"        if !$isFirst;
                                     
-            $CDS_info .= $toAdd if ($isLast);
+            $CDS_info  .= $toAdd        if $isLast;
+            $CDS_info  .= $g_qualifiers if $g_qualifiers && $isLast;
             $EI_info   .= "$start\t$end\texon\n";
             $EI_info   .= "\t\t\tnumber\t$num_e\n";
+            $EI_info   .= $qualifiers if $qualifiers;
         }
 
         foreach my $num_i ( sort {$a<=>$b} keys %$introns)  {
-            my $start   = $introns->{$num_i}->{'start'};
-            my $end     = $introns->{$num_i}->{'end'};
-            my $group   = $introns->{$num_i}->{'group'} || "";
+            my $start      = $introns->{$num_i}->{'start'};
+            my $end        = $introns->{$num_i}->{'end'};
+            my $qualifiers = $introns->{$num_i}->{'qualifiers'} || "";
             
             $EI_info   .= "$start\t$end\tintron\n";
             $EI_info   .= "\t\t\tnumber\t$num_i\n";
-            $EI_info   .= "\t\t\tnote\tGroup $group\n" if $group;
+            $EI_info   .= $qualifiers if $qualifiers;
         }
         $feature_tab .= $CDS_info;
         $feature_tab .= $EI_info;
     }
     return $feature_tab;
+}
+
+sub TreatQualifiers {
+    my $annot = shift;
+    
+    my $startline    = $annot->get_startline();
+    my $name         = $annot->get_genename();
+    my $multicomment = $annot->get_startmulticomment();
+    my $isMinus      = ( $annot->get_direction eq "==>" ? 0 : 1); 
+    my $start        = $annot->get_startpos();
+    my $end          = $annot->get_endpos();
+    
+    foreach my $comment (@$multicomment) {
+        $startline  =~ s/\\\s*$//;
+        $comment    =~ s/^;;\s*/ /;
+        $startline .= $comment;
+    }
+    
+    my $string_for_qualif = $startline;
+       $string_for_qualif =~ s/;;.+$//;
+       $string_for_qualif = $string_for_qualif =~ m/(<==|==>)\s*start(.+)/ ? $2 : "";
+    
+    # If qualifier invalid, it is ignored
+    my %qualifs = ();
+    my $err_mess = "";
+    if( $err_mess = &ParseQualifiers( $name, $string_for_qualif, \%qualifs ) ){
+        chomp($err_mess);
+        print "Warning: $err_mess This qualifier is ignored.\n";
+    }
+    
+    my ($to_add,$noStart,$noStop) = &TreatNote(\%qualifs,$isMinus,$start) if scalar(keys %qualifs) != 0;
+    
+    return ($to_add,$noStart,$noStop);
+}
+
+sub TreatNote {
+    my ($qualifs,$isMinus,$aa_start) = @_;
+    
+    my ($note,$to_add,$noStart,$noStop) = ("","","","");
+    my $aa_end = $isMinus ? $aa_start - 2 : $aa_start + 2;
+    while ( my ($qualif, $value) = each(%$qualifs) ) {
+        my $class = $OGMP_QUALS_CLASSES->{$qualif};
+        if ($qualif eq "first_aa") {
+            my $first_aa_info = "(pos:$aa_start..$aa_end, aa : $value)";
+            $to_add .= "\t\t\ttransl_except\t$first_aa_info\n";
+        }
+        elsif ($class ne "note") {
+            $noStart = "<" if $qualif eq "nostart";
+            $noStop  = ">" if $qualif eq "nostop";
+            if ($qualif ne "nostart" && $qualif ne "nostop") {
+                $qualif  = "gene_synonym" if $qualif eq "synonym";
+                $to_add .= "\t\t\t$qualif\t$value\n";
+            }
+        }
+        else {
+            my $desc  = $OGMP_QUALS_TEXTS->{$qualif} || "";
+            $desc     =~ s/\%s/$value/;
+            $note    .= "$desc, ";
+        }
+    }
+    $note    =~ s/, $//;
+    $to_add .= "\t\t\tnote\t$note\n" if $note;
+    return ($to_add,$noStart,$noStop);
 }
 
 sub WhatOverlapsThis {
@@ -798,7 +898,7 @@ sub LocateAc {
 
 sub RunTBL2ASN {
     my $comment = $SUBINFO->{'COMMENT'} || "";
-    my $cmd  = "$TBL2ASN -s -v T -b T -t $AUTHORFILE -u";
+    my $cmd  = "$TBL2ASN -m T -s -v T -b T -t $AUTHORFILE -u";
        $cmd .= " -y \"$comment\"" if $comment;
        $cmd .= " -p $TMPDIR";
     system("$cmd");
