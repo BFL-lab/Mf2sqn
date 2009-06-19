@@ -19,8 +19,7 @@
 #                     C.P. 6128, succursale Centre-ville,                   #
 #                      Montreal, Quebec, Canada, H3C 2J7                    #
 #                                                                           #
-#                Programming:  Natacha Beck, Pierre Rioux.                  #
-#                Old version programming: David To, Thomas Hoellinger.      #
+#                Programming:  Natacha Beck.                                #
 #                Project management: Franz Lang (OGMP)                      #
 #                E-Mail information: Franz.Lang@Umontreal.ca                #
 #                                                                           #
@@ -30,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.2 2009/06/16 15:35:18 nbeck Exp $
+#    $Id: mf2sqn,v 1.3 2009/06/19 16:07:53 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.3  2009/06/19 16:07:53  nbeck
+#    Added support for trans-splice gene.
+#
 #    Revision 1.2  2009/06/16 15:35:18  nbeck
 #    Added support for qualifiers, except for citation and trans-spliced.
 #
@@ -65,7 +67,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.2 2009/06/16 15:35:18 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.3 2009/06/19 16:07:53 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -511,8 +513,9 @@ sub CreateTableFile {
     my $file_name   = "$MF_NAME.tbl";
     my $feature_tab = "";
     foreach my $contig (@$CONTIGS) {
-        my $annotations       = $contig->get_annotations();
-        my $seq               = $contig->get_sequence();
+        my $annotations   = $contig->get_annotations();
+        my $seq           = $contig->get_sequence();
+        my $Already_annot = {}; # Hash use for trans-spliced gene.
         my $annots_no_comment = [];
            $feature_tab      .= ">Feature C_$count Table1\n";
         
@@ -528,15 +531,18 @@ sub CreateTableFile {
         
         foreach my $annot (@$annots_no_comment) {
             next if $annot->get_type() ne "G";
+            my $name = $annot->get_genename();
+               $name = $1 if $name =~ m#(.+)_[a-z]$#;
+            next if $name =~ m/citation/i;
+            next if $Already_annot->{$name};
             my $start = $annot->get_startpos();
             my $end   = $annot->get_endpos();
-            my $name  = $annot->get_genename();
-            next if $name =~ m/citation/i;
-            
+
             # Annotation of gene
             $ct_orfs->{$name}++ if $cg_orfs->{$name} && $cg_orfs->{$name} > 1;
-            my $annot_who_overlap = &WhatOverlapsThis($start,$end,$contig);            
-            $feature_tab = &AddInfoForGene($annot_who_overlap,$feature_tab,$name,$ct_orfs->{$name},$contig);
+            my $annot_who_overlap = &WhatOverlapsThis($start,$end,$contig);
+            my $orfnum = $ct_orfs->{$name};
+            ($feature_tab,$Already_annot) = &AddInfoForGene($annot_who_overlap,$feature_tab,$name,$orfnum,$contig,$Already_annot);
         }
         $feature_tab .= "\n";
         $count++;
@@ -548,105 +554,93 @@ sub CreateTableFile {
 }
 
 sub AddInfoForGene {
-    my ($annot_who_overlap,$feature_tab,$name,$orfnum,$contig) = @_;
+    my ($annot_who_overlap,$feature_tab,$name,$orfnum,$contig,$Already_annot) = @_;
     
     foreach my $annotation_who_overlap (@$annot_who_overlap){
         my ($CDS_info,$toAdd,$EI_info,$id) = ("","","","");
-        my ($exons,$introns) = ({},{});
-        my ($g_noStart,$g_noStop,$g_qualifiers) = ("","","");
+        my ($exons,$introns,$gene) = ({},{},{});
+        my ($g_noStart,$g_noStop,$g_qualifs,$g_isTransSplice,$g_type) = ("","","","");
+        
         foreach my $feature_who_overlap (@$annotation_who_overlap) {
-            my $annot          = $feature_who_overlap->[2];
-            my $annot_name     = $annot->get_genename();
-            next if $annot_name  =~ m/citation/i;
-            my $a_type         = $annot->get_type();
-            my $start          = $annot->get_startpos();
-            my $end            = $annot->get_endpos();
-            my $startline      = $annot->get_startline();
-            my $isLast         = ( !$feature_who_overlap->[4] || $feature_who_overlap->[4] ne "LAST"  ? 0 : 1);
-            my $isFirst        = ( !$feature_who_overlap->[4] || $feature_who_overlap->[4] ne "FIRST" ? 0 : 1);
-               $id             = $1 if $startline =~ m#(G-\S+)\s+# && $a_type eq "G";
-            my $add            = $orfnum ? "_$orfnum" : "";
-               $add            = !$add && $startline =~ m/G-\S+_(\d+)/ ? $1 : $add;
-            my $ac             = $annot->get_startline() =~ m/G-trn.\((.+)\)/ ? lc($1) : "" ;
-               $ac             =~ tr/u/t/;
-               $ac             = "\($ac\)" if $ac;
+            my $annot  = $feature_who_overlap->[2];
+            my $a_name = $annot->get_genename();
+               $a_name = $1 if $a_name =~ m#(.+)_([a-z])#;
+               
+            next if $a_name  =~ m/citation/i;
+            my $a_type    = $annot->get_type();
+            my $start     = $annot->get_startpos();
+            my $end       = $annot->get_endpos();
+            my $startline = $annot->get_startline();
             
-            my $lname          = lc($name);
-            my $product        = $GENE_NAME->{$lname}->{"PRODUCTS"}  || "";
-               $product        = "tRNA X" if $lname =~ m/trnx/;
-            my $EC_number      = $GENE_NAME->{$lname}->{"ECNUMBERS"} || "";
-            my $type           = $GENE_NAME->{$lname}->{"TYPES"}     || "";
-               $type           = $type eq "protein" ? "CDS" : $type;
-               ($product,$type)= ("hypothetical protein","CDS") if $name =~ m/orf/;
-            if ($name eq $annot_name) {
-                my ($qualifiers,$noStart,$noStop) = &TreatQualifiers($annot);
-                $noStart = "" if !$noStart;
-                $noStop  = "" if !$noStop;
-                if ($a_type eq "G") {
-                    ($g_noStart,$g_noStop,$g_qualifiers) = ($noStart,$noStop,$qualifiers);
-                    my $anticodon = &LocateAc($annot,$contig) if $ac;
+               $id        = $1 if $startline =~ m#(G-\S+)\s+# && $a_type eq "G";
+            my $add       = $orfnum ? "_$orfnum" : "";
+               $add       = !$add && $startline =~ m/G-\S+_(\d+)/ ? $1 : $add;
+            my $ac        = $startline =~ m/G-trn.\((.+)\)/ ? lc($1) : "" ;
+               $ac        =~ tr/u/t/;
+               $ac        = "\($ac\)" if $ac;
+            
+            my $lname     = lc($name);
+            my $product   = $GENE_NAME->{$lname}->{"PRODUCTS"}  || "";
+               $product   = "tRNA X" if $lname =~ m/trnx/;
+            my $EC_number = $GENE_NAME->{$lname}->{"ECNUMBERS"} || "";
+            my $type      = $GENE_NAME->{$lname}->{"TYPES"}     || "";
+               $type      = $type eq "protein" ? "CDS" : $type;
+           ($product,$type) = ("hypothetical protein","CDS") if $name =~ m/orf/;
+               
+            next if $name ne $a_name;
+            my ($qualifiers,$noStart,$noStop,$isTransSplice) = &TreatQualifiers($annot);
+            $noStart = "" if !$noStart;
+            $noStop  = "" if !$noStop;
+            if ($a_type eq "G") {
+                  ($g_noStart,$g_noStop,$g_qualifs,$g_isTransSplice,$g_type)
+                = ($noStart,$noStop,$qualifiers, $isTransSplice,$type);
+                
+                if ($isTransSplice) {
+                    $Already_annot->{$name}++;
+                    ($exons,$introns,$gene) = &TreatTransSplice($contig,$name,$annotation_who_overlap);
+                    $feature_tab = &AddGeneInfo($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop);
+                }
+                else {
                     $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\tgene\n";
                     $feature_tab .= "\t\t\tgene\t$name$add$ac\n";
-                    $toAdd       .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|$id\n";
-                    $toAdd       .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
-                    $toAdd       .= $anticodon                      if $anticodon;
-                    if (scalar(@$annotation_who_overlap) == 1) {
-                        $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
-                        $CDS_info .= $toAdd;
-                        $CDS_info .= $qualifiers if $qualifiers;
-                    }
                 }
-                elsif ($a_type eq "E") {
-                    next unless $startline =~ m#G-(\S+)-E(\d+)#;
-                    my $exnum = $2;
-                    $exons->{$exnum} = { 'start' => $start  , 'end'  => $end,
-                                         'first' => $isFirst, 'last' => $isLast,
-                                         'type'  => $type,    'qualifiers' => $qualifiers};
-                }
-                elsif ($a_type eq "I"){
-                    next unless $startline =~ m#G-(\S+)-I(\d+)#;
-                    my $innum = $2;
-                    my $group  = $annot->get_introntype();
-                    $introns->{$innum} = { 'start' => $start  , 'end'  => $end,
-                                           'group' => $group, 'qualifiers' => $qualifiers};
-                }
+
+                # CDS info
+                my $anticodon = &LocateAc($annot,$contig) if $ac;
+                $toAdd       .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|$id\n";
+                $toAdd       .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
+                $toAdd       .= $anticodon                      if $anticodon;
+                
+                next if (scalar(@$annotation_who_overlap) != 1);
+                $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
+                $CDS_info .= $toAdd;
+                $CDS_info .= $qualifiers if $qualifiers;
+            }
+            elsif ($a_type eq "E" && !$g_isTransSplice) {
+                next unless $startline =~ m#G-(\S+)-E(\d+)#;
+                my $exnum = $2;
+                $exons->{$exnum} = { 'start' => $start  , 'end'  => $end,
+                                     'type'  => $type,    'qualifiers' => $qualifiers};
+            }
+            elsif ($a_type eq "I" && !$g_isTransSplice){
+                next unless $startline =~ m#G-(\S+)-I(\d+)#;
+                my $innum = $2;
+                $introns->{$innum} = { 'start' => $start  , 'end'  => $end,
+                                       'qualifiers' => $qualifiers};
             }
         }
-        for my $num_e ( sort {$a<=>$b} keys %$exons) {
-            my $start      = $exons->{$num_e}->{'start'};
-            my $end        = $exons->{$num_e}->{'end'};
-            my $isFirst    = $exons->{$num_e}->{'first'};
-            my $isLast     = $exons->{$num_e}->{'last'};
-            my $type       = $exons->{$num_e}->{'type'};
-            my $qualifiers = $exons->{$num_e}->{'qualifiers'} || "";
-            
-            $CDS_info  .= $g_noStart.$start."\t".$g_noStop.$end."\t$type\n" if $isFirst;
-            $CDS_info  .= $g_noStart.$start."\t".$g_noStop.$end."\n"        if !$isFirst;
-                                    
-            $CDS_info  .= $toAdd        if $isLast;
-            $CDS_info  .= $g_qualifiers if $g_qualifiers && $isLast;
-            $EI_info   .= "$start\t$end\texon\n";
-            $EI_info   .= "\t\t\tnumber\t$num_e\n";
-            $EI_info   .= $qualifiers if $qualifiers;
-        }
+        
+        ($CDS_info,$EI_info) = &AddExonsInfo($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_qualifs,$toAdd,$g_type);
+        ($CDS_info,$EI_info) = &AddIntronsInfo($introns,$CDS_info,$EI_info);
 
-        foreach my $num_i ( sort {$a<=>$b} keys %$introns)  {
-            my $start      = $introns->{$num_i}->{'start'};
-            my $end        = $introns->{$num_i}->{'end'};
-            my $qualifiers = $introns->{$num_i}->{'qualifiers'} || "";
-            
-            $EI_info   .= "$start\t$end\tintron\n";
-            $EI_info   .= "\t\t\tnumber\t$num_i\n";
-            $EI_info   .= $qualifiers if $qualifiers;
-        }
         $feature_tab .= $CDS_info;
         $feature_tab .= $EI_info;
     }
-    return $feature_tab;
+    return ($feature_tab,$Already_annot);
 }
 
 sub TreatQualifiers {
-    my $annot = shift;
+    my ($annot) = @_;
     
     my $startline    = $annot->get_startline();
     my $name         = $annot->get_genename();
@@ -673,19 +667,22 @@ sub TreatQualifiers {
         print "Warning: $err_mess This qualifier is ignored.\n";
     }
     
-    my ($to_add,$noStart,$noStop) = &TreatNote(\%qualifs,$isMinus,$start) if scalar(keys %qualifs) != 0;
+    my ($to_add,$noStart,$noStop,$isTransSplice) = &TreatNote(\%qualifs,$isMinus,$start) if scalar(keys %qualifs) != 0;
     
-    return ($to_add,$noStart,$noStop);
+    return ($to_add,$noStart,$noStop,$isTransSplice);
 }
 
 sub TreatNote {
     my ($qualifs,$isMinus,$aa_start) = @_;
     
-    my ($note,$to_add,$noStart,$noStop) = ("","","","");
+    my ($note,$to_add,$noStart,$noStop,$isTransSplice) = ("","","","","");
     my $aa_end = $isMinus ? $aa_start - 2 : $aa_start + 2;
     while ( my ($qualif, $value) = each(%$qualifs) ) {
         my $class = $OGMP_QUALS_CLASSES->{$qualif};
-        if ($qualif eq "first_aa") {
+        if ($qualif eq "trans-spliced") {
+            $isTransSplice = 1;
+        }
+        elsif ($qualif eq "first_aa") {
             my $first_aa_info = "(pos:$aa_start..$aa_end, aa : $value)";
             $to_add .= "\t\t\ttransl_except\t$first_aa_info\n";
         }
@@ -705,7 +702,78 @@ sub TreatNote {
     }
     $note    =~ s/, $//;
     $to_add .= "\t\t\tnote\t$note\n" if $note;
-    return ($to_add,$noStart,$noStop);
+    return ($to_add,$noStart,$noStop,$isTransSplice);
+}
+
+sub TreatTransSplice {
+    my ($contig,$name,$who_overlap) = @_;
+    
+    my $all_fragment = &ExtractAllPartOfTransSplice($contig,$name,$who_overlap);
+    my ($exons,$introns,$gene) = ({},{},{});   
+    for my $fragment ( sort {$a cmp $b} keys %$all_fragment) {
+       
+        my $annot_who_overlap = $all_fragment->{$fragment};
+        foreach my $annotation_who_overlap (@$annot_who_overlap){
+        
+            foreach my $feature_who_overlap (@$annotation_who_overlap) {
+                my $annot     = $feature_who_overlap->[2];
+                my $a_name    = $annot->get_genename();
+                next if $a_name !~ m/$name/;
+                my $type      = $annot->get_type();
+                my $start     = $annot->get_startpos();
+                my $end       = $annot->get_endpos();
+                my $startline = $annot->get_startline();
+                
+                my ($qualifs,$noStart,$noStop) = &TreatQualifiers($annot,$contig);
+                my $suffix = $1 if $startline =~ m#G-\S+_([a-z])#;
+                if ($type eq "G"){
+                    $gene->{"$suffix"} = { 'start' => $start, 'end' => $end, 'qualifiers' => $qualifs};
+                }
+                elsif ($type eq "E") {
+                    next unless $startline =~ m#G-(\S+)_([a-z])-E(\d+)#;
+                    my ($suffix,$exnum) = ($2,$3);
+                    $exons->{"$suffix-$exnum"} = { 'start' => $start  , 'end'        => $end,
+                                                   'type'  => $type,    'qualifiers' => $qualifs};
+                }
+                elsif ($type eq "I"){
+                    next unless $startline =~ m#G-(\S+)_([a-z])-I(\d+)#;
+                    my ($suffix,$innum)  = ($2,$3);
+                    $introns->{"$suffix-$innum"} = { 'start' => $start, 'end'  => $end,
+                                                     'qualifiers' => $qualifs};
+                }
+            }
+        }
+    }
+    return ($exons,$introns,$gene);
+}
+
+sub ExtractAllPartOfTransSplice {
+    my ($contig,$name,$annotation_who_overlap) = @_;
+
+    my $annotlist = $contig->get_annotations() || [];
+    my $suffix = "";
+    ($name,$suffix) = ($1,$2) if ($name =~ m/(.+)_([a-z])$/);
+    my $all_fragment = {};
+    $all_fragment->{$suffix} = [$annotation_who_overlap];
+    foreach my $annot (@$annotlist) {
+        my $a_name   = $annot->get_genename();
+        next if !$a_name;
+        
+        my $a_type   = $annot->get_type();
+        next if $a_type ne "G";
+        
+        my $a_start  = $annot->get_startpos();
+        my $a_end    = $annot->get_endpos();
+
+        my $a_suffix = "";
+        ($a_name,$a_suffix) = ($1,$2) if ($a_name =~ m/(.+)_([a-z])$/);
+        next if $name   ne $a_name;
+        next if $suffix eq $a_suffix;
+        my $annot_who_overlap = &WhatOverlapsThis($a_start,$a_end,$contig);
+        die " Problem with '$name' two fragment have same name\n" if $all_fragment->{$a_suffix};
+        $all_fragment->{$a_suffix} = $annot_who_overlap;
+    }
+    return $all_fragment;
 }
 
 sub WhatOverlapsThis {
@@ -838,6 +906,88 @@ sub OverlappingRegions {
     return 0; # really, no overlap
 } # End sub
 
+sub AddGeneInfo {
+    my ($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop) = @_;
+    
+    my $gene_s = scalar keys %$gene;
+    my $count  = 0;
+    my $frag_list = "";
+    for my $num_p ( sort {$a cmp $b} keys %$gene) {
+        $count++;
+        my $start   = $gene->{$num_p}->{'start'};
+        my $end     = $gene->{$num_p}->{'end'};
+        
+        $frag_list .= "fragment $num_p => pos:$start..$end, ";
+        if ($count == 1) {
+            $feature_tab .= $g_noStart.$start."\t".$end."\tgene\n";
+        }
+        elsif ($count != $gene_s && $count != 1) {
+            $feature_tab .= $start."\t".$end."\n";
+        }
+        
+        next if $count != $gene_s;
+        $feature_tab .= $start."\t".$g_noStop.$end."\n";
+        $feature_tab .= "\t\t\tgene\t$name$add$ac\n";
+    }
+    $frag_list =~ s/, $//;
+    $feature_tab .= "\t\t\tnote\t$frag_list\n";
+    return $feature_tab;
+}
+
+sub AddExonsInfo {
+    my ($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_qualifs,$toAdd,$g_type) = @_;
+    
+    my $exons_s = scalar keys %$exons;
+    my $count   = 0;
+    for my $num_e ( sort {$a cmp $b} keys %$exons) {
+        $count++;
+        my $start   = $exons->{$num_e}->{'start'};
+        my $end     = $exons->{$num_e}->{'end'};
+        my $qualifs = $exons->{$num_e}->{'qualifiers'} || "";
+        $num_e = $1 if $num_e =~ m/[a-z]-(\d+)/;
+        
+        $CDS_info .= $g_noStart.$start."\t".$g_noStop.$end."\t$g_type\n" if $count == 1;
+        $CDS_info .= $g_noStart.$start."\t".$g_noStop.$end."\n"          if $count != 1;
+                                
+        $CDS_info .= $toAdd     if $count == $exons_s;
+        $CDS_info .= $g_qualifs if $g_qualifs && $count == $exons_s;
+        $EI_info  .= "$start\t$end\texon\n";
+        $EI_info  .= "\t\t\tnumber\t$num_e\n";
+        $EI_info  .= $qualifs if $qualifs;
+    }
+    return ($CDS_info,$EI_info);
+}
+
+sub AddIntronsInfo {
+    my ($introns,$CDS_info,$EI_info) = @_;
+    
+    # In order to know which introns have 2 parts.
+    my $IntronCount = {};
+    foreach my $num_i ( sort {$a cmp $b} keys %$introns)  {
+        $num_i = $num_i =~ m/[a-z]-(\d+)/ ? $1 : $num_i;
+        $IntronCount->{$num_i}++;
+    }
+
+    # Complet $EI_info
+    my $count = 0;
+    foreach my $num_i ( sort {$a cmp $b} keys %$introns)  {
+        $count++;
+        my $start   = $introns->{$num_i}->{'start'};
+        my $end     = $introns->{$num_i}->{'end'};
+        my $qualifs = $introns->{$num_i}->{'qualifiers'} || "";
+        $num_i = $1 if $num_i =~ m/[a-z]-(\d+)/;
+        
+        $EI_info .= "$start\t$end\tintron\n" if $count == 1;
+        $EI_info .= "$start\t$end\n"         if $count != 1;
+        
+        next if $count != $IntronCount->{$num_i};
+        $EI_info .= "\t\t\tnumber\t$num_i\n";
+        $EI_info .= $qualifs if $qualifs;
+        $count    = 0;
+    }
+    return ($CDS_info,$EI_info);
+}
+
 sub LocateAc {
     my ($annot,$contig) = @_;
     
@@ -878,7 +1028,6 @@ sub LocateAc {
     $nb_ex    = length($nb_ex);
     my $trna_seq  = lc(substr( $seq,$start_full_seq-1,$trna_len+$nb_ex));
     
-    
     # Define AC position
     my $ac_start = index($trna_seq,"!$ac!");
     print "Can't defined anticodon for $name at pos : $o_start..$o_end\n" if $ac_start == -1;
@@ -890,7 +1039,7 @@ sub LocateAc {
     $ac_end     = $cg_len + 1 - $ac_end   if $isMinus;
     $ac         =~ tr/t/u/;
     
-    my $anticodon = $ac_start == -1 ? "\t\t\tanticodon\t\(pos:$ac_start..$ac_end,aa:$ac_type\)\n" : "";
+    my $anticodon = $ac_start != -1 ? "\t\t\tanticodon\t\(pos:$ac_start..$ac_end,aa:$ac_type\)\n" : "";
     return ($anticodon);
 }
 
