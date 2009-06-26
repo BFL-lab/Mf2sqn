@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.3 2009/06/19 16:07:53 nbeck Exp $
+#    $Id: mf2sqn,v 1.4 2009/06/26 17:53:03 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.4  2009/06/26 17:53:03  nbeck
+#    Added support for gene in two part (like rnl). Added support for citation.
+#
 #    Revision 1.3  2009/06/19 16:07:53  nbeck
 #    Added support for trans-splice gene.
 #
@@ -67,7 +70,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.3 2009/06/19 16:07:53 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.4 2009/06/26 17:53:03 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -168,7 +171,8 @@ my $MODIFIERS       = { 'TITLE'        => '1',
                         'COMMENT'      => '1',
                         'MOLCLASS'     => 'mol',
                         'MOLTYPE'      => 'type',
-                        'TOPOLOGY'     => 'topology'};
+                        'TOPOLOGY'     => 'topology',
+                        'CITATION'     => '1'};
 my $INFO = {};
 
 # Advanced command-line args
@@ -362,6 +366,9 @@ sub CheckInfoEntry {
             $SUBINFO->{'STRAIN'}     = $value if lc($field) eq "strain";
             $SUBINFO->{'TITLE'}      = $value if lc($field) eq "title";
             $SUBINFO->{'COMMENT'}    = $value if lc($field) eq "comment";
+            die "Accepted value for field 'CITATION' in $SUBINFOFILE is only number\n" 
+                if lc($field) eq "citation" && $value =~ m/\D+/;
+            $SUBINFO->{'CITATION'}   = $value if lc($field) eq "citation";
         }
     }
 }
@@ -515,9 +522,15 @@ sub CreateTableFile {
     foreach my $contig (@$CONTIGS) {
         my $annotations   = $contig->get_annotations();
         my $seq           = $contig->get_sequence();
+        my $PubMedId       = $SUBINFO->{'CITATION'};
         my $Already_annot = {}; # Hash use for trans-spliced gene.
         my $annots_no_comment = [];
            $feature_tab      .= ">Feature C_$count Table1\n";
+        if ($PubMedId) {
+            my $seq_len = $contig->get_sequencelength();
+            $feature_tab .= "1\t$seq_len\tREFERENCE\n";
+            $feature_tab .= "\t\t\tPubMed\t$PubMedId\n";
+        }
         
         my ($cg_orfs,$ct_orfs)   = ({},{});
         
@@ -533,6 +546,7 @@ sub CreateTableFile {
             next if $annot->get_type() ne "G";
             my $name = $annot->get_genename();
                $name = $1 if $name =~ m#(.+)_[a-z]$#;
+            $feature_tab = &AddCitationInfo($annot,$feature_tab) if ($name =~ m/citation/i);
             next if $name =~ m/citation/i;
             next if $Already_annot->{$name};
             my $start = $annot->get_startpos();
@@ -557,22 +571,23 @@ sub AddInfoForGene {
     my ($annot_who_overlap,$feature_tab,$name,$orfnum,$contig,$Already_annot) = @_;
     
     foreach my $annotation_who_overlap (@$annot_who_overlap){
-        my ($CDS_info,$toAdd,$EI_info,$id) = ("","","","");
-        my ($exons,$introns,$gene) = ({},{},{});
+        my ($CDS_info,$toAdd,$EI_info,$CIT_info,$id) = ("","","","","");
+        my ($exons,$introns,$gene,$citation) = ({},{},{},{});
         my ($g_noStart,$g_noStop,$g_qualifs,$g_isTransSplice,$g_type) = ("","","","");
         
         foreach my $feature_who_overlap (@$annotation_who_overlap) {
             my $annot  = $feature_who_overlap->[2];
+            my $a_suffix = "";
             my $a_name = $annot->get_genename();
-               $a_name = $1 if $a_name =~ m#(.+)_([a-z])#;
-               
+            ($a_name,$a_suffix) = ($1,"_$2") if $a_name =~ m#(.+)_([a-z])#;
+            
             next if $a_name  =~ m/citation/i;
             my $a_type    = $annot->get_type();
             my $start     = $annot->get_startpos();
             my $end       = $annot->get_endpos();
             my $startline = $annot->get_startline();
             
-               $id        = $1 if $startline =~ m#(G-\S+)\s+# && $a_type eq "G";
+               $id        =" G-$name" if $a_type eq "G";
             my $add       = $orfnum ? "_$orfnum" : "";
                $add       = !$add && $startline =~ m/G-\S+_(\d+)/ ? $1 : $add;
             my $ac        = $startline =~ m/G-trn.\((.+)\)/ ? lc($1) : "" ;
@@ -588,7 +603,7 @@ sub AddInfoForGene {
            ($product,$type) = ("hypothetical protein","CDS") if $name =~ m/orf/;
                
             next if $name ne $a_name;
-            my ($qualifiers,$noStart,$noStop,$isTransSplice) = &TreatQualifiers($annot);
+            my ($qualifiers,$noStart,$noStop,$isTransSplice,$haveRef) = &TreatQualifiers($annot);
             $noStart = "" if !$noStart;
             $noStop  = "" if !$noStop;
             if ($a_type eq "G") {
@@ -597,12 +612,17 @@ sub AddInfoForGene {
                 
                 if ($isTransSplice) {
                     $Already_annot->{$name}++;
-                    ($exons,$introns,$gene) = &TreatTransSplice($contig,$name,$annotation_who_overlap);
+                    ($exons,$introns,$gene,$citation) = &TreatTransSplice($contig,$name,$annotation_who_overlap);
                     $feature_tab = &AddGeneInfo($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop);
                 }
                 else {
                     $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\tgene\n";
-                    $feature_tab .= "\t\t\tgene\t$name$add$ac\n";
+                    $feature_tab .= "\t\t\tgene\t$name$add$a_suffix$ac\n";
+                    my $frag_name = $a_suffix;
+                       $frag_name =~ s/_//;
+                    $feature_tab .= "\t\t\tnote\tfragment $frag_name\n" if $frag_name;
+                    $CIT_info .= "$start\t$end\tREFERENCE\n" if $haveRef;
+                    $CIT_info .= "\t\t\tPubMed\t$haveRef\n"  if $haveRef;
                 }
 
                 # CDS info
@@ -621,26 +641,34 @@ sub AddInfoForGene {
                 my $exnum = $2;
                 $exons->{$exnum} = { 'start' => $start  , 'end'  => $end,
                                      'type'  => $type,    'qualifiers' => $qualifiers};
+                next if !$haveRef;
+                $CIT_info .= "$start\t$end\tREFERENCE\n";
+                $CIT_info .= "\t\t\tPubMed\t$haveRef\n";
             }
             elsif ($a_type eq "I" && !$g_isTransSplice){
                 next unless $startline =~ m#G-(\S+)-I(\d+)#;
                 my $innum = $2;
                 $introns->{$innum} = { 'start' => $start  , 'end'  => $end,
                                        'qualifiers' => $qualifiers};
+                next if !$haveRef;
+                $CIT_info .= "$start\t$end\tREFERENCE\n";
+                $CIT_info .= "\t\t\tPubMed\t$haveRef\n";
             }
         }
         
         ($CDS_info,$EI_info) = &AddExonsInfo($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_qualifs,$toAdd,$g_type);
         ($CDS_info,$EI_info) = &AddIntronsInfo($introns,$CDS_info,$EI_info);
-
+        $CIT_info            = &AddCitationsInfo($citation) if scalar(keys %$citation);
+        
         $feature_tab .= $CDS_info;
         $feature_tab .= $EI_info;
+        $feature_tab .= $CIT_info;
     }
     return ($feature_tab,$Already_annot);
 }
 
 sub TreatQualifiers {
-    my ($annot) = @_;
+    my ($annot,$isCitation) = @_;
     
     my $startline    = $annot->get_startline();
     my $name         = $annot->get_genename();
@@ -667,20 +695,24 @@ sub TreatQualifiers {
         print "Warning: $err_mess This qualifier is ignored.\n";
     }
     
-    my ($to_add,$noStart,$noStop,$isTransSplice) = &TreatNote(\%qualifs,$isMinus,$start) if scalar(keys %qualifs) != 0;
+    return \%qualifs if $isCitation;
     
-    return ($to_add,$noStart,$noStop,$isTransSplice);
+    my ($to_add,$noStart,$noStop,$isTransSplice,$haveRef) = &TreatNote(\%qualifs,$isMinus,$start) if scalar(keys %qualifs) != 0;
+    return ($to_add,$noStart,$noStop,$isTransSplice,$haveRef);
 }
 
 sub TreatNote {
     my ($qualifs,$isMinus,$aa_start) = @_;
     
-    my ($note,$to_add,$noStart,$noStop,$isTransSplice) = ("","","","","");
+    my ($note,$to_add,$noStart,$noStop,$isTransSplice,$haveRef) = ("","","","","","");
     my $aa_end = $isMinus ? $aa_start - 2 : $aa_start + 2;
     while ( my ($qualif, $value) = each(%$qualifs) ) {
         my $class = $OGMP_QUALS_CLASSES->{$qualif};
         if ($qualif eq "trans-spliced") {
             $isTransSplice = 1;
+        }
+        elsif ($qualif eq "citation") {
+            $haveRef = $value;
         }
         elsif ($qualif eq "first_aa") {
             my $first_aa_info = "(pos:$aa_start..$aa_end, aa : $value)";
@@ -702,14 +734,15 @@ sub TreatNote {
     }
     $note    =~ s/, $//;
     $to_add .= "\t\t\tnote\t$note\n" if $note;
-    return ($to_add,$noStart,$noStop,$isTransSplice);
+    return ($to_add,$noStart,$noStop,$isTransSplice,$haveRef);
 }
 
 sub TreatTransSplice {
     my ($contig,$name,$who_overlap) = @_;
     
     my $all_fragment = &ExtractAllPartOfTransSplice($contig,$name,$who_overlap);
-    my ($exons,$introns,$gene) = ({},{},{});   
+    my ($exons,$introns,$gene,$citation) = ({},{},{},{});
+    my $count = 0;
     for my $fragment ( sort {$a cmp $b} keys %$all_fragment) {
        
         my $annot_who_overlap = $all_fragment->{$fragment};
@@ -724,8 +757,11 @@ sub TreatTransSplice {
                 my $end       = $annot->get_endpos();
                 my $startline = $annot->get_startline();
                 
-                my ($qualifs,$noStart,$noStop) = &TreatQualifiers($annot,$contig);
+                my ($qualifs,$noStart,$noStop,$isTransSplice,$haveRef) = &TreatQualifiers($annot);
                 my $suffix = $1 if $startline =~ m#G-\S+_([a-z])#;
+                if ($haveRef) {
+                    $citation->{$count} = { 'start' => $start, 'end' => $end, 'pubmedId' => $haveRef};
+                }
                 if ($type eq "G"){
                     $gene->{"$suffix"} = { 'start' => $start, 'end' => $end, 'qualifiers' => $qualifs};
                 }
@@ -741,10 +777,11 @@ sub TreatTransSplice {
                     $introns->{"$suffix-$innum"} = { 'start' => $start, 'end'  => $end,
                                                      'qualifiers' => $qualifs};
                 }
+                $count++;
             }
         }
     }
-    return ($exons,$introns,$gene);
+    return ($exons,$introns,$gene,$citation);
 }
 
 sub ExtractAllPartOfTransSplice {
@@ -906,6 +943,22 @@ sub OverlappingRegions {
     return 0; # really, no overlap
 } # End sub
 
+sub AddCitationInfo {
+    my ($annot,$feature_tab) = @_;
+    
+    my $qualifs = &TreatQualifiers($annot,1);
+    my $start = $annot->get_startpos();
+    my $end   = $annot->get_endpos();
+    
+    while ( my ($qualif, $value) = each(%$qualifs) ) {
+        print "Only citation qualifiers is used for citation annotation\n"
+            if $qualif ne "citation"; 
+        $feature_tab .= "$start\t$end\tREFERENCE\n";
+        $feature_tab .= "\t\t\tPubMed\t$value\n";
+    }
+    return $feature_tab
+}
+
 sub AddGeneInfo {
     my ($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop) = @_;
     
@@ -988,6 +1041,21 @@ sub AddIntronsInfo {
     return ($CDS_info,$EI_info);
 }
 
+sub AddCitationsInfo {
+    my $citations = shift;
+    
+    my $CIT_info = "";
+    foreach my $num_c ( sort {$a cmp $b} keys %$citations)  {
+        my $start    = $citations->{$num_c}->{'start'};
+        my $end      = $citations->{$num_c}->{'end'};
+        my $PubMedId = $citations->{$num_c}->{'pubmedId'} || die "Citation at pos $start..$end have no pubmedId\n";
+
+        $CIT_info .= "$start\t$end\tREFERENCE\n";
+        $CIT_info .= "\t\t\tPubMed\t$PubMedId\n";
+    }
+    return $CIT_info;
+}
+
 sub LocateAc {
     my ($annot,$contig) = @_;
     
@@ -1031,6 +1099,7 @@ sub LocateAc {
     # Define AC position
     my $ac_start = index($trna_seq,"!$ac!");
     print "Can't defined anticodon for $name at pos : $o_start..$o_end\n" if $ac_start == -1;
+    return if $ac_start == -1;
        $ac_start = $start + $ac_start;
     my $ac_end   = $ac_start + 2;
     
@@ -1047,7 +1116,7 @@ sub LocateAc {
 
 sub RunTBL2ASN {
     my $comment = $SUBINFO->{'COMMENT'} || "";
-    my $cmd  = "$TBL2ASN -m T -s -v T -b T -t $AUTHORFILE -u";
+    my $cmd  = "$TBL2ASN -U T -P T -k m -s T -V vb -t $AUTHORFILE ";
        $cmd .= " -y \"$comment\"" if $comment;
        $cmd .= " -p $TMPDIR";
     system("$cmd");
