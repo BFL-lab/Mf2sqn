@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.4 2009/06/26 17:53:03 nbeck Exp $
+#    $Id: mf2sqn,v 1.5 2009/07/02 17:36:32 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.5  2009/07/02 17:36:32  nbeck
+#    Added qualifiers verification.
+#
 #    Revision 1.4  2009/06/26 17:53:03  nbeck
 #    Added support for gene in two part (like rnl). Added support for citation.
 #
@@ -70,7 +73,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.4 2009/06/26 17:53:03 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.5 2009/07/02 17:36:32 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -93,6 +96,8 @@ my $TBL2ASN='/share/supported/bin/tbl2asn';
 my $GENE_NAME={};
 my $OGMP_QUALS_CLASSES= {};
 my $OGMP_QUALS_TEXTS={};
+my $OGMP_QUALS_USAGE={};
+my $OGMP_QUALS_GENENAME={};
 
 # Basic command-line args
 my $MASTERFILE="";          # The name of a file containing a genome in MF format
@@ -503,13 +508,18 @@ sub ParseQualifList {
     
     foreach my $line (@FILE) {
         my $n=$line;
-        $n =~ /^(\S+)\s+(\S+)\s*(.*)\n?$/;
-        my ($qualifier,$classes,$text) = ($1,$2,$3);
+        my @fields = split(/\|\s+/,$line);
+        foreach my $field (@fields){
+            $field =~ s/^\s+//;
+            $field =~ s/\s+$//;
+        }
+        my ($qualifier,$classes,$text,$usage,$name) = ($fields[0],$fields[1],$fields[2],$fields[3],$fields[4]);
         die "Package OGMP_Qualifs: can't parse line:\n$line" unless $qualifier;
-        $text =~ s/\s+$//;
         $OGMP_QUALS_CLASSES->{$qualifier}=$classes;
         $OGMP_QUALS_TEXTS->{$qualifier}=$text if $text;
-        }
+        $OGMP_QUALS_USAGE->{$qualifier}=$usage;
+        $OGMP_QUALS_GENENAME->{$qualifier}=$name;
+    }
 }
 
 
@@ -573,7 +583,7 @@ sub AddInfoForGene {
     foreach my $annotation_who_overlap (@$annot_who_overlap){
         my ($CDS_info,$toAdd,$EI_info,$CIT_info,$id) = ("","","","","");
         my ($exons,$introns,$gene,$citation) = ({},{},{},{});
-        my ($g_noStart,$g_noStop,$g_qualifs,$g_isTransSplice,$g_type) = ("","","","");
+        my ($g_noStart,$g_noStop,$g_genequalifs,$g_CDSqualifs,$g_isTransSplice,$g_type) = ("","","","","","");
         
         foreach my $feature_who_overlap (@$annotation_who_overlap) {
             my $annot  = $feature_who_overlap->[2];
@@ -597,22 +607,23 @@ sub AddInfoForGene {
             my $lname     = lc($name);
             my $product   = $GENE_NAME->{$lname}->{"PRODUCTS"}  || "";
                $product   = "tRNA X" if $lname =~ m/trnx/;
+            my $function  = $GENE_NAME->{$lname}->{"FUNCTIONS"}  || "";
             my $EC_number = $GENE_NAME->{$lname}->{"ECNUMBERS"} || "";
             my $type      = $GENE_NAME->{$lname}->{"TYPES"}     || "";
                $type      = $type eq "protein" ? "CDS" : $type;
            ($product,$type) = ("hypothetical protein","CDS") if $name =~ m/orf/;
                
             next if $name ne $a_name;
-            my ($qualifiers,$noStart,$noStop,$isTransSplice,$haveRef) = &TreatQualifiers($annot);
+            my ($gene_qualifs,$CDS_qualifs,$noStart,$noStop,$isTransSplice,$haveRef) = &TreatQualifiers($annot);
             $noStart = "" if !$noStart;
             $noStop  = "" if !$noStop;
             if ($a_type eq "G") {
-                  ($g_noStart,$g_noStop,$g_qualifs,$g_isTransSplice,$g_type)
-                = ($noStart,$noStop,$qualifiers, $isTransSplice,$type);
+                  ($g_noStart,$g_noStop,$g_genequalifs,$g_CDSqualifs,$g_isTransSplice,$g_type)
+                = ($noStart,$noStop,$gene_qualifs,$CDS_qualifs,$isTransSplice,$type);
                 
                 if ($isTransSplice) {
                     $Already_annot->{$name}++;
-                    ($exons,$introns,$gene,$citation) = &TreatTransSplice($contig,$name,$annotation_who_overlap);
+                    ($exons,$introns,$gene,$citation,$CDS_qualifs) = &TreatTransSplice($contig,$name,$annotation_who_overlap);
                     $feature_tab = &AddGeneInfo($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop);
                 }
                 else {
@@ -620,7 +631,11 @@ sub AddInfoForGene {
                     $feature_tab .= "\t\t\tgene\t$name$add$a_suffix$ac\n";
                     my $frag_name = $a_suffix;
                        $frag_name =~ s/_//;
-                    $feature_tab .= "\t\t\tnote\tfragment $frag_name\n" if $frag_name;
+                    $feature_tab .= $gene_qualifs if $gene_qualifs;
+                    my $old_note  = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
+                    my $new_note  = "$old_note, fragment $frag_name\n" if $frag_name && $old_note;
+                    $feature_tab  =~ s/\t\t\tnote\t\$old_note\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
+                    $feature_tab .= "\t\t\tnote\tfragment $frag_name\n" if !$old_note && $frag_name;
                     $CIT_info .= "$start\t$end\tREFERENCE\n" if $haveRef;
                     $CIT_info .= "\t\t\tPubMed\t$haveRef\n"  if $haveRef;
                 }
@@ -628,19 +643,20 @@ sub AddInfoForGene {
                 # CDS info
                 my $anticodon = &LocateAc($annot,$contig) if $ac;
                 $toAdd       .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|$id\n";
+                #$toAdd       .= "\t\t\tfunction\t$function\n"   if $function;
                 $toAdd       .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
                 $toAdd       .= $anticodon                      if $anticodon;
                 
                 next if (scalar(@$annotation_who_overlap) != 1);
                 $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
                 $CDS_info .= $toAdd;
-                $CDS_info .= $qualifiers if $qualifiers;
+                $CDS_info .= $CDS_qualifs if $CDS_qualifs;
             }
             elsif ($a_type eq "E" && !$g_isTransSplice) {
                 next unless $startline =~ m#G-(\S+)-E(\d+)#;
                 my $exnum = $2;
                 $exons->{$exnum} = { 'start' => $start  , 'end'  => $end,
-                                     'type'  => $type,    'qualifiers' => $qualifiers};
+                                     'type'  => $type,    'qualifs' => $CDS_qualifs};
                 next if !$haveRef;
                 $CIT_info .= "$start\t$end\tREFERENCE\n";
                 $CIT_info .= "\t\t\tPubMed\t$haveRef\n";
@@ -649,14 +665,14 @@ sub AddInfoForGene {
                 next unless $startline =~ m#G-(\S+)-I(\d+)#;
                 my $innum = $2;
                 $introns->{$innum} = { 'start' => $start  , 'end'  => $end,
-                                       'qualifiers' => $qualifiers};
+                                       'qualifs' => $CDS_qualifs};
                 next if !$haveRef;
                 $CIT_info .= "$start\t$end\tREFERENCE\n";
                 $CIT_info .= "\t\t\tPubMed\t$haveRef\n";
             }
         }
         
-        ($CDS_info,$EI_info) = &AddExonsInfo($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_qualifs,$toAdd,$g_type);
+        ($CDS_info,$EI_info) = &AddExonsInfo($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type);
         ($CDS_info,$EI_info) = &AddIntronsInfo($introns,$CDS_info,$EI_info);
         $CIT_info            = &AddCitationsInfo($citation) if scalar(keys %$citation);
         
@@ -676,6 +692,7 @@ sub TreatQualifiers {
     my $isMinus      = ( $annot->get_direction eq "==>" ? 0 : 1); 
     my $start        = $annot->get_startpos();
     my $end          = $annot->get_endpos();
+    my $type         = $annot->get_type();
     
     foreach my $comment (@$multicomment) {
         $startline  =~ s/\\\s*$//;
@@ -697,17 +714,48 @@ sub TreatQualifiers {
     
     return \%qualifs if $isCitation;
     
-    my ($to_add,$noStart,$noStop,$isTransSplice,$haveRef) = &TreatNote(\%qualifs,$isMinus,$start) if scalar(keys %qualifs) != 0;
-    return ($to_add,$noStart,$noStop,$isTransSplice,$haveRef);
+    my ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef) 
+        = &TreatNote(\%qualifs,$isMinus,$start,$type,$name,$startline) if scalar(keys %qualifs) != 0;
+    return ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef);
 }
 
 sub TreatNote {
-    my ($qualifs,$isMinus,$aa_start) = @_;
+    my ($qualifs,$isMinus,$aa_start,$type,$name,$startline) = @_;
     
-    my ($note,$to_add,$noStart,$noStop,$isTransSplice,$haveRef) = ("","","","","","");
+    my ($CDS_note,$gene_note,$CDS_toAdd,$gene_toAdd) = ("","","","","");
+    my ($noStart,$noStop,$isTransSplice,$haveRef)    = ("","","","","");
     my $aa_end = $isMinus ? $aa_start - 2 : $aa_start + 2;
+    my $isIntronic = 1 if $startline =~ m/G-\w+-I\d+-\w+/;
+    
     while ( my ($qualif, $value) = each(%$qualifs) ) {
-        my $class = $OGMP_QUALS_CLASSES->{$qualif};
+        my $class    = $OGMP_QUALS_CLASSES->{$qualif};
+        my $usage    = $OGMP_QUALS_USAGE->{$qualif};
+        my $aut_name = lc($OGMP_QUALS_GENENAME->{$qualif});
+        my $forGene  = 1 if $usage eq "gene";
+        my $forCDS   = 1 if $usage eq "CDS" || $usage eq "all";
+           $forCDS   = 1 if $usage eq "intron"; #Special case for intron
+        
+        # Validation of qualifiers
+        if ($usage ne "none") {
+            if ($type eq "I") {
+                print "Qualifiers : '$qualif' isn't accepted for Intron\n"
+                    if $usage ne "intron" && $usage ne "all";
+                    next if $usage ne "intron" && $usage ne "all";
+            }
+            else {
+                if ($aut_name =~ m/intronic ORF/) {
+                    $aut_name = "ORF";
+                    print "Qualifier : '$qualif' is only acepted for intronic gene\n"
+                       if !$isIntronic;
+                    next if !$isIntronic;
+                }
+                print "Qualifier : '$qualif' isn't accepted for '$name' is only accepted for $aut_name\n"
+                    if $aut_name ne "all" &&  lc($name) !~ m/$aut_name/;
+                next if $aut_name ne "all" &&  lc($name) !~ m/$aut_name/;
+            }
+        }
+        
+        # Treatment of qualifiers
         if ($qualif eq "trans-spliced") {
             $isTransSplice = 1;
         }
@@ -716,25 +764,32 @@ sub TreatNote {
         }
         elsif ($qualif eq "first_aa") {
             my $first_aa_info = "(pos:$aa_start..$aa_end, aa : $value)";
-            $to_add .= "\t\t\ttransl_except\t$first_aa_info\n";
+            $CDS_toAdd .= "\t\t\ttransl_except\t$first_aa_info\n";
         }
         elsif ($class ne "note") {
             $noStart = "<" if $qualif eq "nostart";
             $noStop  = ">" if $qualif eq "nostop";
             if ($qualif ne "nostart" && $qualif ne "nostop") {
                 $qualif  = "gene_synonym" if $qualif eq "synonym";
-                $to_add .= "\t\t\t$qualif\t$value\n";
+                $gene_toAdd .= "\t\t\t$qualif\t$value\n" if $forGene;
+                $CDS_toAdd  .= "\t\t\t$qualif\t$value\n" if $forCDS;
             }
         }
         else {
             my $desc  = $OGMP_QUALS_TEXTS->{$qualif} || "";
             $desc     =~ s/\%s/$value/;
-            $note    .= "$desc, ";
+            $gene_note .= "$desc, " if $forGene;
+            $CDS_note  .= "$desc, " if $forCDS;
         }
     }
-    $note    =~ s/, $//;
-    $to_add .= "\t\t\tnote\t$note\n" if $note;
-    return ($to_add,$noStart,$noStop,$isTransSplice,$haveRef);
+    $gene_note =~ s/, $//;
+    $CDS_note  =~ s/, $//; 
+    
+    $CDS_note  = "$gene_note, $CDS_note" if $type eq "I" || $type eq "E";
+    $gene_note = ""                      if $type eq "I" || $type eq "E"; 
+    $gene_toAdd .= "\t\t\tnote\t$gene_note\n" if $gene_note;
+    $CDS_toAdd  .= "\t\t\tnote\t$CDS_note\n"  if $CDS_note;
+    return ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef);
 }
 
 sub TreatTransSplice {
@@ -743,6 +798,7 @@ sub TreatTransSplice {
     my $all_fragment = &ExtractAllPartOfTransSplice($contig,$name,$who_overlap);
     my ($exons,$introns,$gene,$citation) = ({},{},{},{});
     my $count = 0;
+    my $All_CDS_qualifs = "";
     for my $fragment ( sort {$a cmp $b} keys %$all_fragment) {
        
         my $annot_who_overlap = $all_fragment->{$fragment};
@@ -757,31 +813,38 @@ sub TreatTransSplice {
                 my $end       = $annot->get_endpos();
                 my $startline = $annot->get_startline();
                 
-                my ($qualifs,$noStart,$noStop,$isTransSplice,$haveRef) = &TreatQualifiers($annot);
+                my ($gene_qualifs,$CDS_qualifs,$noStart,$noStop,$isTransSplice,$haveRef)
+                    = &TreatQualifiers($annot);
                 my $suffix = $1 if $startline =~ m#G-\S+_([a-z])#;
                 if ($haveRef) {
                     $citation->{$count} = { 'start' => $start, 'end' => $end, 'pubmedId' => $haveRef};
                 }
                 if ($type eq "G"){
-                    $gene->{"$suffix"} = { 'start' => $start, 'end' => $end, 'qualifiers' => $qualifs};
+                    if ($count == 0) {
+                        $gene->{"$suffix"} = { 'start' => $start, 'end' => $end, 'gene_qualifs' => $gene_qualifs};
+                        $All_CDS_qualifs = $CDS_qualifs;
+                    }
+                    else {
+                        $gene->{"$suffix"} = { 'start' => $start, 'end' => $end};
+                    }
                 }
                 elsif ($type eq "E") {
                     next unless $startline =~ m#G-(\S+)_([a-z])-E(\d+)#;
                     my ($suffix,$exnum) = ($2,$3);
                     $exons->{"$suffix-$exnum"} = { 'start' => $start  , 'end'        => $end,
-                                                   'type'  => $type,    'qualifiers' => $qualifs};
+                                                   'type'  => $type,    'qualifs' => $CDS_qualifs};
                 }
                 elsif ($type eq "I"){
                     next unless $startline =~ m#G-(\S+)_([a-z])-I(\d+)#;
                     my ($suffix,$innum)  = ($2,$3);
                     $introns->{"$suffix-$innum"} = { 'start' => $start, 'end'  => $end,
-                                                     'qualifiers' => $qualifs};
+                                                     'qualifs' => $CDS_qualifs};
                 }
                 $count++;
             }
         }
     }
-    return ($exons,$introns,$gene,$citation);
+    return ($exons,$introns,$gene,$citation,$All_CDS_qualifs);
 }
 
 sub ExtractAllPartOfTransSplice {
@@ -963,12 +1026,15 @@ sub AddGeneInfo {
     my ($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop) = @_;
     
     my $gene_s = scalar keys %$gene;
+    my $gene_qualif = "";
     my $count  = 0;
+    
     my $frag_list = "";
     for my $num_p ( sort {$a cmp $b} keys %$gene) {
         $count++;
-        my $start   = $gene->{$num_p}->{'start'};
-        my $end     = $gene->{$num_p}->{'end'};
+        my $start       = $gene->{$num_p}->{'start'};
+        my $end         = $gene->{$num_p}->{'end'};
+           $gene_qualif = $gene->{$num_p}->{'gene_qualifs'} if $count == 1;
         
         $frag_list .= "fragment $num_p => pos:$start..$end, ";
         if ($count == 1) {
@@ -984,11 +1050,12 @@ sub AddGeneInfo {
     }
     $frag_list =~ s/, $//;
     $feature_tab .= "\t\t\tnote\t$frag_list\n";
+    $feature_tab .= $gene_qualif if $gene_qualif;
     return $feature_tab;
 }
 
 sub AddExonsInfo {
-    my ($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_qualifs,$toAdd,$g_type) = @_;
+    my ($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type) = @_;
     
     my $exons_s = scalar keys %$exons;
     my $count   = 0;
@@ -996,14 +1063,14 @@ sub AddExonsInfo {
         $count++;
         my $start   = $exons->{$num_e}->{'start'};
         my $end     = $exons->{$num_e}->{'end'};
-        my $qualifs = $exons->{$num_e}->{'qualifiers'} || "";
+        my $qualifs = $exons->{$num_e}->{'qualifs'} || "";
         $num_e = $1 if $num_e =~ m/[a-z]-(\d+)/;
         
         $CDS_info .= $g_noStart.$start."\t".$g_noStop.$end."\t$g_type\n" if $count == 1;
         $CDS_info .= $g_noStart.$start."\t".$g_noStop.$end."\n"          if $count != 1;
                                 
         $CDS_info .= $toAdd     if $count == $exons_s;
-        $CDS_info .= $g_qualifs if $g_qualifs && $count == $exons_s;
+        $CDS_info .= $g_CDSqualifs if $g_CDSqualifs && $count == $exons_s;
         $EI_info  .= "$start\t$end\texon\n";
         $EI_info  .= "\t\t\tnumber\t$num_e\n";
         $EI_info  .= $qualifs if $qualifs;
@@ -1027,7 +1094,7 @@ sub AddIntronsInfo {
         $count++;
         my $start   = $introns->{$num_i}->{'start'};
         my $end     = $introns->{$num_i}->{'end'};
-        my $qualifs = $introns->{$num_i}->{'qualifiers'} || "";
+        my $qualifs = $introns->{$num_i}->{'qualifs'} || "";
         $num_i = $1 if $num_i =~ m/[a-z]-(\d+)/;
         
         $EI_info .= "$start\t$end\tintron\n" if $count == 1;
