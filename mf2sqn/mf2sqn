@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.5 2009/07/02 17:36:32 nbeck Exp $
+#    $Id: mf2sqn,v 1.6 2009/12/14 18:57:08 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.6  2009/12/14 18:57:08  nbeck
+#    Fixed bug with gene we have more than 9 exons.
+#
 #    Revision 1.5  2009/07/02 17:36:32  nbeck
 #    Added qualifiers verification.
 #
@@ -73,7 +76,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.5 2009/07/02 17:36:32 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.6 2009/12/14 18:57:08 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -1059,7 +1062,7 @@ sub AddExonsInfo {
     
     my $exons_s = scalar keys %$exons;
     my $count   = 0;
-    for my $num_e ( sort {$a cmp $b} keys %$exons) {
+    for my $num_e ( sort {$a <=> $b} keys %$exons) {
         $count++;
         my $start   = $exons->{$num_e}->{'start'};
         my $end     = $exons->{$num_e}->{'end'};
@@ -1083,7 +1086,7 @@ sub AddIntronsInfo {
     
     # In order to know which introns have 2 parts.
     my $IntronCount = {};
-    foreach my $num_i ( sort {$a cmp $b} keys %$introns)  {
+    foreach my $num_i ( sort {$a <=> $b} keys %$introns)  {
         $num_i = $num_i =~ m/[a-z]-(\d+)/ ? $1 : $num_i;
         $IntronCount->{$num_i}++;
     }
