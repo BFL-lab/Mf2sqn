@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.6 2009/12/14 18:57:08 nbeck Exp $
+#    $Id: mf2sqn,v 1.7 2009/12/15 22:17:51 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.7  2009/12/15 22:17:51  nbeck
+#    Added option for Table output.
+#
 #    Revision 1.6  2009/12/14 18:57:08  nbeck
 #    Fixed bug with gene we have more than 9 exons.
 #
@@ -76,7 +79,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.6 2009/12/14 18:57:08 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.7 2009/12/15 22:17:51 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -108,7 +111,9 @@ my $MF_NAME="";             # The name of masterfile
 my $SUBINFOFILE="";         # The name of a file containing the submission information
 my $AUTHOR="";              # Author name (Lang or Burger)
 my $AUTHORFILE="";          # The name of a file containing autor information
-my $CREATEGB=0;             # Use in order tyo create Genbank file
+my $CREATEGB=0;             # Use in order to create Genbank file
+my $CREATETB=0;             # Use in order to create Table file
+
 
 my $SUBINFO={};
 my $ACCEPT_GENOME  = {   O  => 'apicoplast',
@@ -192,7 +197,7 @@ my $INFO = {};
 sub Usage {
     my $message = shift || "";
     print STDERR <<USAGE;
-Basic usage: $BASENAME [-d] -a author -m masterfile
+Basic usage: $BASENAME [-d] [-t] -a author -m masterfile
 
 where: -a author     :  Accepted values : Lang or Burger.
                         Looked in '/share/supported/apps/mf2sqn/SubmitterLang.sbt'
@@ -205,6 +210,7 @@ where: -a author     :  Accepted values : Lang or Burger.
        -m masterfile : Is the masterfile for submission.
        
        -d            : Create GenBank file in output.
+       -t            : Create Table file in output.
 
 USAGE
     print STDERR "\n$message\n" if $message;
@@ -214,7 +220,7 @@ USAGE
 &Usage if scalar(@ARGV) == 0;
 
 for (;@ARGV;) {
-    my ($opt,$arg) = ($ARGV[0] =~ /^-([\@mad])(.*)$/o);
+    my ($opt,$arg) = ($ARGV[0] =~ /^-([\@madt])(.*)$/o);
     last if ! defined $opt;
     if ($opt =~ /[\@ma]/ && $arg eq "") {
         if (@ARGV < 2) {
@@ -229,6 +235,7 @@ for (;@ARGV;) {
     $MASTERFILE=$arg                              if $opt eq 'm';
     $AUTHOR=$arg                                  if $opt eq 'a';
     $CREATEGB=1                                   if $opt eq 'd';
+    $CREATETB=1                                   if $opt eq 't';
     shift @ARGV;
 }
 
@@ -1193,7 +1200,8 @@ sub RunTBL2ASN {
     
     my $sqnFile = "$TMPDIR/$MF_NAME.sqn";
     my $gbFile  = "$TMPDIR/$MF_NAME.gbf";
-    my ($sqnOutput,$gbOutput) = &DefineOutputName();
+    my $tbFile  = "$TMPDIR/$MF_NAME.tbl";
+    my ($sqnOutput,$gbOutput,$tbOutput) = &DefineOutputName();
     copy($sqnFile, $sqnOutput) or die "File '$sqnFile' cannot be copied in '$sqnOutput'.\n";
     my @sqnOut = split(/\//, $sqnOutput);
     $sqnOutput = $sqnOut[-1];
@@ -1203,6 +1211,12 @@ sub RunTBL2ASN {
         my @gbOut = split(/\//, $gbOutput);
         $gbOutput = $gbOut[-1];
         print "Dumping GenBank file in '$gbOutput'\n";
+    }
+    if ($CREATETB == 1) {
+        copy($tbFile,  $tbOutput)  or die "File '$tbFile' cannot be copied in '$tbOutput'.";
+        my @tbOut = split(/\//, $tbOutput);
+        $tbOutput = $tbOut[-1];
+        print "Dumping Table file in '$tbOutput'\n";
     }
 }
 
@@ -1228,5 +1242,16 @@ sub DefineOutputName {
         $count++;
         $gbOutput = $gbOutput_pref."_".$count.$gbOutput_suff;
     }
-    return($sqnOutput,$gbOutput);
+    
+       $count = 0;
+    my $tbOutput_pref = "$current_wd/$MF_NAME";
+    my $tbOutput_suff = ".tbl";
+    my $tbOutput      = $tbOutput_pref.$tbOutput_suff;
+    
+    while (-r ($tbOutput)) {
+        $count++;
+        $tbOutput = $tbOutput_pref."_".$count.$tbOutput_suff;
+    }
+    
+    return($sqnOutput,$gbOutput,$tbOutput);
 }
