@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.7 2009/12/15 22:17:51 nbeck Exp $
+#    $Id: mf2sqn,v 1.8 2009/12/16 16:22:46 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.8  2009/12/16 16:22:46  nbeck
+#    Added generic author.
+#
 #    Revision 1.7  2009/12/15 22:17:51  nbeck
 #    Added option for Table output.
 #
@@ -79,7 +82,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.7 2009/12/15 22:17:51 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.8 2009/12/16 16:22:46 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -98,6 +101,7 @@ my $QUALIF_FILE="/share/supported/apps/ogmp/lib/ogmp_qualifiers.lst";
 my $SUB_INFO_MODEL="/share/supported/apps/mf2sqn/SubInfo";
 my $SUBMITTERLANG="/share/supported/apps/mf2sqn/SubmitterLang.sbt";
 my $SUBMITTERBURGER="/share/supported/apps/mf2sqn/SubmitterBurger.sbt";
+my $SUBMITTERGENERIC="/share/supported/apps/mf2sqn/SubmitterGeneric.sbt";
 my $TBL2ASN='/share/supported/bin/tbl2asn';
 my $GENE_NAME={};
 my $OGMP_QUALS_CLASSES= {};
@@ -248,8 +252,10 @@ for (;@ARGV;) {
 $MF_NAME = basename($MASTERFILE);
 
 &Usage( "Accepted value for author is Lang or Burger")
-    if lc($AUTHOR) ne "lang" && lc($AUTHOR) ne 'burger';
-$AUTHORFILE= lc($AUTHOR) eq "lang" ? $SUBMITTERLANG : $SUBMITTERBURGER;
+    if lc($AUTHOR) ne "lang" && lc($AUTHOR) ne 'burger' && lc($AUTHOR) ne 'generic';
+$AUTHORFILE= $SUBMITTERLANG    if lc($AUTHOR) eq "lang";
+$AUTHORFILE= $SUBMITTERBURGER  if lc($AUTHOR) eq "burger";
+$AUTHORFILE= $SUBMITTERGENERIC if lc($AUTHOR) eq "generic";
 die "The author file '$AUTHORFILE' doesn't exist\n"
     unless -f "$AUTHORFILE";
 
