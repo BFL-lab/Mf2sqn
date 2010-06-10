@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.8 2009/12/16 16:22:46 nbeck Exp $
+#    $Id: mf2sqn,v 1.9 2010/06/10 14:49:40 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.9  2010/06/10 14:49:40  nbeck
+#    Fixed bug with protein id.
+#
 #    Revision 1.8  2009/12/16 16:22:46  nbeck
 #    Added generic author.
 #
@@ -82,7 +85,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.8 2009/12/16 16:22:46 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.9 2010/06/10 14:49:40 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -658,8 +661,7 @@ sub AddInfoForGene {
 
                 # CDS info
                 my $anticodon = &LocateAc($annot,$contig) if $ac;
-                $toAdd       .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|$id\n";
-                #$toAdd       .= "\t\t\tfunction\t$function\n"   if $function;
+                $toAdd       .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|${id}$add\n";
                 $toAdd       .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
                 $toAdd       .= $anticodon                      if $anticodon;
                 
