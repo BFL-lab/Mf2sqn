@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.9 2010/06/10 14:49:40 nbeck Exp $
+#    $Id: mf2sqn,v 1.10 2010/06/10 15:38:50 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.10  2010/06/10 15:38:50  nbeck
+#    *** empty log message ***
+#
 #    Revision 1.9  2010/06/10 14:49:40  nbeck
 #    Fixed bug with protein id.
 #
@@ -85,7 +88,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.9 2010/06/10 14:49:40 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.10 2010/06/10 15:38:50 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -1201,9 +1204,12 @@ sub LocateAc {
 
 sub RunTBL2ASN {
     my $comment = $SUBINFO->{'COMMENT'} || "";
-    my $cmd  = "$TBL2ASN -U T -P T -k m -s T -V vb -t $AUTHORFILE ";
-       $cmd .= " -y \"$comment\"" if $comment;
+    my $strain  = $SUBINFO->{'STRAIN'} || "";
+    my $cmd  = "$TBL2ASN -U T -P T -k m -s T -V vb -t $AUTHORFILE";
+       $cmd .= " -y \"$comment\""          if $comment;
+       $cmd .= " -j  \"[strain=$strain]\"" if $strain;
        $cmd .= " -p $TMPDIR";
+       print "$cmd\n" if $DEBUG;
     system("$cmd");
     
     my $sqnFile = "$TMPDIR/$MF_NAME.sqn";
