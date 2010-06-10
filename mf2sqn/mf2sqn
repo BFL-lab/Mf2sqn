@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.10 2010/06/10 15:38:50 nbeck Exp $
+#    $Id: mf2sqn,v 1.11 2010/06/10 19:37:24 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.11  2010/06/10 19:37:24  nbeck
+#    Added field completedness.
+#
 #    Revision 1.10  2010/06/10 15:38:50  nbeck
 #    *** empty log message ***
 #
@@ -88,7 +91,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.10 2010/06/10 15:38:50 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.11 2010/06/10 19:37:24 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -159,43 +162,53 @@ my $ACCEPT_GCODE    = { '1' =>  'Standard',
                        '21' => 'Trematode Mitochondrial',
                        '22' => 'Scenedesmus Obliquus Mitochondrial',
                        '23' => 'Thraustochytrium Mitochondrial'};
-my $ACCEPT_MOLCLASS = { D => 'DNA',
-                        R => 'RNA',
-                        N => 'NUCLEOTIDE',
-                        P => 'PROTEIN',
-                        O => 'OTHER'};
-my $ACCEPT_MOLTYPE  = { G => 'genomic',
-                        E => 'pre mrna',
-                        M => 'mrna',
-                        R => 'rrna',
-                        T => 'trna',
-                        S => 'snrna',
-                        C => 'scrna',
-                        P => 'peptide',
-                        O => 'OTHER GENETIC',
-                        X => 'GENOMIC MRNA'};
-my $ACCEPT_TOPO     = { C => 'CIRCULAR',
-                        L => 'LINEAR',
-                        C => 'CIRCULAR',
-                        T => 'TANDEM',
-                        O => 'OTHER'};
+my $ACCEPT_MOLCLASS = { D  => 'DNA',
+                        R  => 'RNA',
+                        N  => 'NUCLEOTIDE',
+                        P  => 'PROTEIN',
+                        O  => 'OTHER'};
+my $ACCEPT_MOLTYPE  = { G  => 'genomic',
+                        E  => 'pre mrna',
+                        M  => 'mrna',
+                        R  => 'rrna',
+                        T  => 'trna',
+                        S  => 'snrna',
+                        C  => 'scrna',
+                        P  => 'peptide',
+                        O  => 'OTHER GENETIC',
+                        X  => 'GENOMIC MRNA'};
+my $ACCEPT_TOPO     = { C  => 'CIRCULAR',
+                        L  => 'LINEAR',
+                        C  => 'CIRCULAR',
+                        T  => 'TANDEM',
+                        O  => 'OTHER'};
+my $ACCEPT_COMPLETE = { C  => 'Complete',
+                        P  => 'Partial',
+                        NL => 'No Left',
+                        NR => 'No Right',
+                        NE => 'No Ends',
+                        HL => 'Has Left',
+                        HR => 'Has Right',
+                        O  => 'Other'};
 $SUBINFO = { 'GENOME'         => $ACCEPT_GENOME->{'M'},
              'NUC_CODE'       => '1',
              'MIT_CODE'       => '1',
              'MOLCLASS'       => $ACCEPT_MOLCLASS->{'D'},
              'MOLTYPE'        => $ACCEPT_MOLTYPE->{'G'},
-             'TOPOLOGY'       => $ACCEPT_TOPO->{'C'}};
-my $MODIFIERS       = { 'TITLE'        => '1',
-                        'GENOME'       => 'location',
-                        'MIT_CODE'     => 'mgcode',
-                        'NUC_CODE'     => 'gcode',
-                        'SCIENTIFIC'   => 'organism',
-                        'STRAIN'       => '1',
-                        'COMMENT'      => '1',
-                        'MOLCLASS'     => 'mol',
-                        'MOLTYPE'      => 'type',
-                        'TOPOLOGY'     => 'topology',
-                        'CITATION'     => '1'};
+             'TOPOLOGY'       => $ACCEPT_TOPO->{'C'},
+             'COMPLETEDNESS'  => $ACCEPT_COMPLETE->{'C'}};
+my $MODIFIERS       = { 'TITLE'         => '1',
+                        'GENOME'        => 'location',
+                        'MIT_CODE'      => 'mgcode',
+                        'NUC_CODE'      => 'gcode',
+                        'SCIENTIFIC'    => 'organism',
+                        'STRAIN'        => '1',
+                        'COMMENT'       => '1',
+                        'MOLCLASS'      => 'mol',
+                        'MOLTYPE'       => 'type',
+                        'TOPOLOGY'      => 'topology',
+                        'COMPLETEDNESS' => 'completedness',
+                        'CITATION'      => '1'};
 my $INFO = {};
 
 # Advanced command-line args
@@ -383,12 +396,13 @@ sub CheckInfoEntry {
 
     while (my  ($tag, $hash) = each %$INFO ) {
         while (my  ($field, $value) = each %$hash ) {
-            &CheckFieldAndComp($field,"genome"      ,$ACCEPT_GENOME,$value);
-            &CheckFieldAndComp($field,"nuc_code"    ,$ACCEPT_GCODE,$value);
-            &CheckFieldAndComp($field,"mit_code"    ,$ACCEPT_GCODE,$value);
-            &CheckFieldAndComp($field,"molclass"    ,$ACCEPT_MOLCLASS,$value);
-            &CheckFieldAndComp($field,"moltype"     ,$ACCEPT_MOLTYPE,$value);
-            &CheckFieldAndComp($field,"topology"    ,$ACCEPT_TOPO,$value);
+            &CheckFieldAndComp($field,"genome"       ,$ACCEPT_GENOME,$value);
+            &CheckFieldAndComp($field,"nuc_code"     ,$ACCEPT_GCODE,$value);
+            &CheckFieldAndComp($field,"mit_code"     ,$ACCEPT_GCODE,$value);
+            &CheckFieldAndComp($field,"molclass"     ,$ACCEPT_MOLCLASS,$value);
+            &CheckFieldAndComp($field,"moltype"      ,$ACCEPT_MOLTYPE,$value);
+            &CheckFieldAndComp($field,"topology"     ,$ACCEPT_TOPO,$value);
+            &CheckFieldAndComp($field,"completedness",$ACCEPT_COMPLETE,$value);
             $SUBINFO->{'SCIENTIFIC'} = $value if lc($field) eq "scientific";
             $SUBINFO->{'STRAIN'}     = $value if lc($field) eq "strain";
             $SUBINFO->{'TITLE'}      = $value if lc($field) eq "title";
@@ -412,12 +426,13 @@ sub CheckFieldAndComp {
             $list =~ s/,$/\./;
             die "Accepted value for field 'COMPLETE' in $SUBINFOFILE is : $list\n";
         }
-        $SUBINFO->{'GENOME'}   = $ACCEPT_GENOME->{$value}   if lc($field) eq "genome";
-        $SUBINFO->{'NUC_CODE'} = $value                     if lc($field) eq "nuc_code";
-        $SUBINFO->{'MIT_CODE'} = $value                     if lc($field) eq "mit_code";
-        $SUBINFO->{'MOLCLASS'} = $ACCEPT_MOLCLASS->{$value} if lc($field) eq "molclass";
-        $SUBINFO->{'MOLTYPE'}  = $ACCEPT_MOLTYPE->{$value}  if lc($field) eq "moltype";
-        $SUBINFO->{'TOPOLOGY'} = $ACCEPT_TOPO->{$value}     if lc($field) eq "topology";
+        $SUBINFO->{'GENOME'}        = $ACCEPT_GENOME->{$value}   if lc($field) eq "genome";
+        $SUBINFO->{'NUC_CODE'}      = $value                     if lc($field) eq "nuc_code";
+        $SUBINFO->{'MIT_CODE'}      = $value                     if lc($field) eq "mit_code";
+        $SUBINFO->{'MOLCLASS'}      = $ACCEPT_MOLCLASS->{$value} if lc($field) eq "molclass";
+        $SUBINFO->{'MOLTYPE'}       = $ACCEPT_MOLTYPE->{$value}  if lc($field) eq "moltype";
+        $SUBINFO->{'TOPOLOGY'}      = $ACCEPT_TOPO->{$value}     if lc($field) eq "topology";
+        $SUBINFO->{'COMPLETEDNESS'} = $ACCEPT_COMPLETE->{$value} if lc($field) eq "completedness";
     }
 }
 
