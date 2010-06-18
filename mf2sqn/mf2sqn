@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.11 2010/06/10 19:37:24 nbeck Exp $
+#    $Id: mf2sqn,v 1.12 2010/06/18 20:28:43 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.12  2010/06/18 20:28:43  nbeck
+#    Fixed bug with duplication of gene.
+#
 #    Revision 1.11  2010/06/10 19:37:24  nbeck
 #    Added field completedness.
 #
@@ -91,7 +94,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.11 2010/06/10 19:37:24 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.12 2010/06/18 20:28:43 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -636,7 +639,7 @@ sub AddInfoForGene {
             
                $id        =" G-$name" if $a_type eq "G";
             my $add       = $orfnum ? "_$orfnum" : "";
-               $add       = !$add && $startline =~ m/G-\S+_(\d+)/ ? $1 : $add;
+               $add       = !$add && $startline =~ m/G-\S+(_\d+)/ ? $1 : $add;
             my $ac        = $startline =~ m/G-trn.\((.+)\)/ ? lc($1) : "" ;
                $ac        =~ tr/u/t/;
                $ac        = "\($ac\)" if $ac;
@@ -651,7 +654,7 @@ sub AddInfoForGene {
            ($product,$type) = ("hypothetical protein","CDS") if $name =~ m/orf/;
                
             next if $name ne $a_name;
-            my ($gene_qualifs,$CDS_qualifs,$noStart,$noStop,$isTransSplice,$haveRef) = &TreatQualifiers($annot);
+            my ($gene_qualifs,$CDS_qualifs,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo) = &TreatQualifiers($annot);
             $noStart = "" if !$noStart;
             $noStop  = "" if !$noStop;
             if ($a_type eq "G") {
@@ -669,6 +672,7 @@ sub AddInfoForGene {
                     my $frag_name = $a_suffix;
                        $frag_name =~ s/_//;
                     $feature_tab .= $gene_qualifs if $gene_qualifs;
+                    $feature_tab .= $CDS_qualifs  if $CDS_qualifs && $isPseudo;
                     my $old_note  = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
                     my $new_note  = "$old_note, fragment $frag_name\n" if $frag_name && $old_note;
                     $feature_tab  =~ s/\t\t\tnote\t\$old_note\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
@@ -678,6 +682,7 @@ sub AddInfoForGene {
                 }
 
                 # CDS info
+                if ($isPseudo != 1) {
                 my $anticodon = &LocateAc($annot,$contig) if $ac;
                 $toAdd       .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|${id}$add\n";
                 $toAdd       .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
@@ -687,6 +692,7 @@ sub AddInfoForGene {
                 $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
                 $CDS_info .= $toAdd;
                 $CDS_info .= $CDS_qualifs if $CDS_qualifs;
+                }
             }
             elsif ($a_type eq "E" && !$g_isTransSplice) {
                 next unless $startline =~ m#G-(\S+)-E(\d+)#;
@@ -750,9 +756,9 @@ sub TreatQualifiers {
     
     return \%qualifs if $isCitation;
     
-    my ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef) 
+    my ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo) 
         = &TreatNote(\%qualifs,$isMinus,$start,$type,$name,$startline) if scalar(keys %qualifs) != 0;
-    return ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef);
+    return ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo || 0);
 }
 
 sub TreatNote {
@@ -762,6 +768,7 @@ sub TreatNote {
     my ($noStart,$noStop,$isTransSplice,$haveRef)    = ("","","","","");
     my $aa_end = $isMinus ? $aa_start - 2 : $aa_start + 2;
     my $isIntronic = 1 if $startline =~ m/G-\w+-I\d+-\w+/;
+    my $isPseudo   = 0;
     
     while ( my ($qualif, $value) = each(%$qualifs) ) {
         my $class    = $OGMP_QUALS_CLASSES->{$qualif};
@@ -792,6 +799,8 @@ sub TreatNote {
         }
         
         # Treatment of qualifiers
+        $isPseudo = 1 if $qualif eq "pseudo";
+        
         if ($qualif eq "trans-spliced") {
             $isTransSplice = 1;
         }
@@ -825,7 +834,7 @@ sub TreatNote {
     $gene_note = ""                      if $type eq "I" || $type eq "E"; 
     $gene_toAdd .= "\t\t\tnote\t$gene_note\n" if $gene_note;
     $CDS_toAdd  .= "\t\t\tnote\t$CDS_note\n"  if $CDS_note;
-    return ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef);
+    return ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo);
 }
 
 sub TreatTransSplice {
@@ -1055,7 +1064,7 @@ sub AddCitationInfo {
         $feature_tab .= "$start\t$end\tREFERENCE\n";
         $feature_tab .= "\t\t\tPubMed\t$value\n";
     }
-    return $feature_tab
+    return $feature_tab;
 }
 
 sub AddGeneInfo {
