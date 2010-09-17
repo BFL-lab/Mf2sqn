@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.12 2010/06/18 20:28:43 nbeck Exp $
+#    $Id: mf2sqn,v 1.13 2010/09/17 15:36:16 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.13  2010/09/17 15:36:16  nbeck
+#    Fixed bug with reverse tRNA.
+#
 #    Revision 1.12  2010/06/18 20:28:43  nbeck
 #    Fixed bug with duplication of gene.
 #
@@ -94,7 +97,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.12 2010/06/18 20:28:43 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.13 2010/09/17 15:36:16 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -420,6 +423,7 @@ sub CheckInfoEntry {
 sub CheckFieldAndComp {
     my ($field,$field_to_check,$accept_values,$value) = @_;
     
+    my $uc_field = uc($field);
     if (lc($field) eq $field_to_check){
         if (!($accept_values->{$value})){
             my $list = "";
@@ -427,7 +431,8 @@ sub CheckFieldAndComp {
                     $list .= "$ab,";
                 }
             $list =~ s/,$/\./;
-            die "Accepted value for field 'COMPLETE' in $SUBINFOFILE is : $list\n";
+            
+            die "Accepted value for field '$uc_field' in $SUBINFOFILE is : $list\n";
         }
         $SUBINFO->{'GENOME'}        = $ACCEPT_GENOME->{$value}   if lc($field) eq "genome";
         $SUBINFO->{'NUC_CODE'}      = $value                     if lc($field) eq "nuc_code";
@@ -1175,6 +1180,7 @@ sub LocateAc {
     my $cg_len  = $contig->get_sequencelength();
     
     my $seq     = $contig->get_sequence();
+       $seq     = uc($seq);
        $seq     =~ tr/ACGT/TGCA/ if $isMinus;
        $seq     = reverse $seq   if $isMinus;
     
@@ -1209,7 +1215,8 @@ sub LocateAc {
     my $trna_seq  = lc(substr( $seq,$start_full_seq-1,$trna_len+$nb_ex));
     
     # Define AC position
-    my $ac_start = index($trna_seq,"!$ac!");
+    my $uc_ac = uc($ac);
+    my $ac_start = index(uc($trna_seq),"!$uc_ac!");
     print "Can't defined anticodon for $name at pos : $o_start..$o_end\n" if $ac_start == -1;
     return if $ac_start == -1;
        $ac_start = $start + $ac_start;
