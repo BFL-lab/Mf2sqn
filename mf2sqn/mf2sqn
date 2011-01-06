@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.13 2010/09/17 15:36:16 nbeck Exp $
+#    $Id: mf2sqn,v 1.14 2011/01/06 20:54:43 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.14  2011/01/06 20:54:43  nbeck
+#    Added note for gene copy number.
+#
 #    Revision 1.13  2010/09/17 15:36:16  nbeck
 #    Fixed bug with reverse tRNA.
 #
@@ -97,7 +100,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.13 2010/09/17 15:36:16 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.14 2011/01/06 20:54:43 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -673,15 +676,24 @@ sub AddInfoForGene {
                 }
                 else {
                     $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\tgene\n";
-                    $feature_tab .= "\t\t\tgene\t$name$add$a_suffix$ac\n";
+                    $feature_tab .= "\t\t\tgene\t$name$a_suffix$ac\n";
                     my $frag_name = $a_suffix;
                        $frag_name =~ s/_//;
                     $feature_tab .= $gene_qualifs if $gene_qualifs;
                     $feature_tab .= $CDS_qualifs  if $CDS_qualifs && $isPseudo;
+                    
                     my $old_note  = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
                     my $new_note  = "$old_note, fragment $frag_name\n" if $frag_name && $old_note;
                     $feature_tab  =~ s/\t\t\tnote\t\$old_note\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
                     $feature_tab .= "\t\t\tnote\tfragment $frag_name\n" if !$old_note && $frag_name;
+                    
+                    my $cp_num = $add;
+                       $cp_num =~ s/_//;
+                       $old_note = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
+                       $new_note  = "$old_note, copy $cp_num\n" if $cp_num && $old_note;
+                    $feature_tab  =~ s/\t\t\tnote\t\$old_note\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
+                    $feature_tab .= "\t\t\tnote\tcopy $cp_num\n" if !$old_note && $cp_num;
+                    
                     $CIT_info .= "$start\t$end\tREFERENCE\n" if $haveRef;
                     $CIT_info .= "\t\t\tPubMed\t$haveRef\n"  if $haveRef;
                 }
