@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.14 2011/01/06 20:54:43 nbeck Exp $
+#    $Id: mf2sqn,v 1.15 2011/02/14 14:52:25 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.15  2011/02/14 14:52:25  nbeck
+#    Added treatment of Var/Sig/Mot annotation.
+#
 #    Revision 1.14  2011/01/06 20:54:43  nbeck
 #    Added note for gene copy number.
 #
@@ -100,7 +103,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.14 2011/01/06 20:54:43 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.15 2011/02/14 14:52:25 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -119,6 +122,7 @@ my $QUALIF_FILE="/share/supported/apps/ogmp/lib/ogmp_qualifiers.lst";
 my $SUB_INFO_MODEL="/share/supported/apps/mf2sqn/SubInfo";
 my $SUBMITTERLANG="/share/supported/apps/mf2sqn/SubmitterLang.sbt";
 my $SUBMITTERBURGER="/share/supported/apps/mf2sqn/SubmitterBurger.sbt";
+my $SUBMITTERGRAY="/share/supported/apps/mf2sqn/SubmitterGray.sbt";
 my $SUBMITTERGENERIC="/share/supported/apps/mf2sqn/SubmitterGeneric.sbt";
 my $TBL2ASN='/share/supported/bin/tbl2asn';
 my $GENE_NAME={};
@@ -126,6 +130,7 @@ my $OGMP_QUALS_CLASSES= {};
 my $OGMP_QUALS_TEXTS={};
 my $OGMP_QUALS_USAGE={};
 my $OGMP_QUALS_GENENAME={};
+my $OGMP_QUALS_TO_NOTE={};
 
 # Basic command-line args
 my $MASTERFILE="";          # The name of a file containing a genome in MF format
@@ -231,9 +236,10 @@ sub Usage {
     print STDERR <<USAGE;
 Basic usage: $BASENAME [-d] [-t] -a author -m masterfile
 
-where: -a author     :  Accepted values : Lang or Burger.
+where: -a author     :  Accepted values : Lang or Burger or Gray.
                         Looked in '/share/supported/apps/mf2sqn/SubmitterLang.sbt'
                         or in '/share/supported/apps/mf2sqn/SubmitterBurger.sbt'
+                        or in '/share/supported/apps/mf2sqn/SubmitterGray.sbt'
                         Each file contain a text ASN.1 Submit-block object.
                         The Submit-block contains contact information (to whom questions
                         on the submission can be addressed) and a submission citation (which lists
@@ -252,9 +258,9 @@ USAGE
 &Usage if scalar(@ARGV) == 0;
 
 for (;@ARGV;) {
-    my ($opt,$arg) = ($ARGV[0] =~ /^-([\@madt])(.*)$/o);
+    my ($opt,$arg) = ($ARGV[0] =~ /^-([\@madtg])(.*)$/o);
     last if ! defined $opt;
-    if ($opt =~ /[\@ma]/ && $arg eq "") {
+    if ($opt =~ /[\@mag]/ && $arg eq "") {
         if (@ARGV < 2) {
             print STDERR "Argument required for switch \"-$opt\".\n";
             exit 1;
@@ -268,6 +274,8 @@ for (;@ARGV;) {
     $AUTHOR=$arg                                  if $opt eq 'a';
     $CREATEGB=1                                   if $opt eq 'd';
     $CREATETB=1                                   if $opt eq 't';
+    $GENE_NAME_FILE=$arg                          if $opt eq 'g';
+    
     shift @ARGV;
 }
 
@@ -280,9 +288,10 @@ for (;@ARGV;) {
 $MF_NAME = basename($MASTERFILE);
 
 &Usage( "Accepted value for author is Lang or Burger")
-    if lc($AUTHOR) ne "lang" && lc($AUTHOR) ne 'burger' && lc($AUTHOR) ne 'generic';
+    if lc($AUTHOR) ne "lang" && lc($AUTHOR) ne 'burger' && lc($AUTHOR) ne 'generic' && lc($AUTHOR) ne "gray";
 $AUTHORFILE= $SUBMITTERLANG    if lc($AUTHOR) eq "lang";
 $AUTHORFILE= $SUBMITTERBURGER  if lc($AUTHOR) eq "burger";
+$AUTHORFILE= $SUBMITTERGRAY    if lc($AUTHOR) eq "gray";
 $AUTHORFILE= $SUBMITTERGENERIC if lc($AUTHOR) eq "generic";
 die "The author file '$AUTHORFILE' doesn't exist\n"
     unless -f "$AUTHORFILE";
@@ -568,6 +577,9 @@ sub ParseQualifList {
         $OGMP_QUALS_USAGE->{$qualifier}=$usage;
         $OGMP_QUALS_GENENAME->{$qualifier}=$name;
     }
+    $OGMP_QUALS_TO_NOTE->{"substitution"}++;$OGMP_QUALS_TO_NOTE->{"polymorph"}++;$OGMP_QUALS_TO_NOTE->{"non-silent"}++;
+    $OGMP_QUALS_TO_NOTE->{"deletion"}++;$OGMP_QUALS_TO_NOTE->{"repeat_element"}++;$OGMP_QUALS_TO_NOTE->{"codon_altern"}++;
+    $OGMP_QUALS_TO_NOTE->{"translate_altern"}++;$OGMP_QUALS_TO_NOTE->{"organization"}++;
 }
 
 
@@ -594,14 +606,15 @@ sub CreateTableFile {
         
         foreach my $annot (@$annotations) {
             my $type = $annot->get_type();
-            my $name = $annot->get_genename;
+            my $name = $annot->get_genename();
+            
             next if $type eq "C";
-            $cg_orfs->{$name}++ if $name =~ m/orf\d+/;
+            $cg_orfs->{$name}++ if defined($name) && $name =~ m/orf\d+/;
             push(@$annots_no_comment,$annot);
         }
         
         foreach my $annot (@$annots_no_comment) {
-            next if $annot->get_type() ne "G";
+            next if ($annot->get_type() ne "G" && $annot->get_type() ne "S");
             my $name = $annot->get_genename();
                $name = $1 if $name =~ m#(.+)_[a-z]$#;
             $feature_tab = &AddCitationInfo($annot,$feature_tab) if ($name =~ m/citation/i);
@@ -660,14 +673,29 @@ sub AddInfoForGene {
             my $type      = $GENE_NAME->{$lname}->{"TYPES"}     || "";
                $type      = $type eq "protein" ? "CDS" : $type;
            ($product,$type) = ("hypothetical protein","CDS") if $name =~ m/orf/;
-               
+            
             next if $name ne $a_name;
-            my ($gene_qualifs,$CDS_qualifs,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo) = &TreatQualifiers($annot);
+            my ($gene_qualifs,$CDS_qualifs,$none_qualifs,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo,$FKey) = &TreatQualifiers($annot);
             $noStart = "" if !$noStart;
             $noStop  = "" if !$noStop;
-            if ($a_type eq "G") {
+            # Add information about Sig
+            if ($a_type eq "S") { 
+                $feature_tab = &TreatMotAndSig($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$a_type);
+            } 
+            elsif ($a_type eq "G") {
                   ($g_noStart,$g_noStop,$g_genequalifs,$g_CDSqualifs,$g_isTransSplice,$g_type)
                 = ($noStart,$noStop,$gene_qualifs,$CDS_qualifs,$isTransSplice,$type);
+                
+                # Add information about Var
+                if ($a_name =~ m/^var/i) {
+                    $feature_tab = &TreatVar($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs);
+                    next;
+                }
+                # Add information about Mot
+                if ($a_name =~ m/^mot/i) {
+                    $feature_tab = &TreatMotAndSig($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$a_type);
+                    next;
+                }
                 
                 if ($isTransSplice) {
                     $Already_annot->{$name}++;
@@ -684,14 +712,14 @@ sub AddInfoForGene {
                     
                     my $old_note  = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
                     my $new_note  = "$old_note, fragment $frag_name\n" if $frag_name && $old_note;
-                    $feature_tab  =~ s/\t\t\tnote\t\$old_note\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
+                    $feature_tab  =~ s/\t\t\tnote\t\Q$old_note\E\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
                     $feature_tab .= "\t\t\tnote\tfragment $frag_name\n" if !$old_note && $frag_name;
                     
                     my $cp_num = $add;
                        $cp_num =~ s/_//;
-                       $old_note = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
+                       $old_note  = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
                        $new_note  = "$old_note, copy $cp_num\n" if $cp_num && $old_note;
-                    $feature_tab  =~ s/\t\t\tnote\t\$old_note\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
+                    $feature_tab  =~ s/\t\t\tnote\t\Q$old_note\E\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
                     $feature_tab .= "\t\t\tnote\tcopy $cp_num\n" if !$old_note && $cp_num;
                     
                     $CIT_info .= "$start\t$end\tREFERENCE\n" if $haveRef;
@@ -748,7 +776,7 @@ sub TreatQualifiers {
     my $startline    = $annot->get_startline();
     my $name         = $annot->get_genename();
     my $multicomment = $annot->get_startmulticomment();
-    my $isMinus      = ( $annot->get_direction eq "==>" ? 0 : 1); 
+    my $isMinus      = ($annot->get_direction eq "==>" ? 0 : 1); 
     my $start        = $annot->get_startpos();
     my $end          = $annot->get_endpos();
     my $type         = $annot->get_type();
@@ -761,7 +789,7 @@ sub TreatQualifiers {
     
     my $string_for_qualif = $startline;
        $string_for_qualif =~ s/;;.+$//;
-       $string_for_qualif = $string_for_qualif =~ m/(<==|==>)\s*start(.+)/ ? $2 : "";
+       $string_for_qualif = $string_for_qualif =~ m/(<==|==>)\s*(start|point)(.+)/ ? $3 : "";
     
     # If qualifier invalid, it is ignored
     my %qualifs = ();
@@ -773,15 +801,15 @@ sub TreatQualifiers {
     
     return \%qualifs if $isCitation;
     
-    my ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo) 
+    my ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo,$FKey) 
         = &TreatNote(\%qualifs,$isMinus,$start,$type,$name,$startline) if scalar(keys %qualifs) != 0;
-    return ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo || 0);
+    return ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo || 0,$FKey);
 }
 
 sub TreatNote {
     my ($qualifs,$isMinus,$aa_start,$type,$name,$startline) = @_;
     
-    my ($CDS_note,$gene_note,$CDS_toAdd,$gene_toAdd) = ("","","","","");
+    my ($CDS_note,$gene_note,$none_note,$CDS_toAdd,$gene_toAdd,$none_toAdd,$Fkey) = ("","","","","","","","");
     my ($noStart,$noStop,$isTransSplice,$haveRef)    = ("","","","","");
     my $aa_end = $isMinus ? $aa_start - 2 : $aa_start + 2;
     my $isIntronic = 1 if $startline =~ m/G-\w+-I\d+-\w+/;
@@ -794,23 +822,24 @@ sub TreatNote {
         my $forGene  = 1 if $usage eq "gene";
         my $forCDS   = 1 if $usage eq "CDS" || $usage eq "all";
            $forCDS   = 1 if $usage eq "intron"; #Special case for intron
+        my $forNone  = 1 if $usage eq "none";
         
         # Validation of qualifiers
         if ($usage ne "none") {
             if ($type eq "I") {
                 print "Qualifiers : '$qualif' isn't accepted for Intron\n"
-                    if $usage ne "intron" && $usage ne "all";
-                    next if $usage ne "intron" && $usage ne "all";
+                if      $usage ne "intron" && $usage ne "all";
+                next if $usage ne "intron" && $usage ne "all";
             }
             else {
                 if ($aut_name =~ m/intronic ORF/) {
                     $aut_name = "ORF";
                     print "Qualifier : '$qualif' is only acepted for intronic gene\n"
-                       if !$isIntronic;
+                         if !$isIntronic;
                     next if !$isIntronic;
                 }
                 print "Qualifier : '$qualif' isn't accepted for '$name' is only accepted for $aut_name\n"
-                    if $aut_name ne "all" &&  lc($name) !~ m/$aut_name/;
+                     if $aut_name ne "all" &&  lc($name) !~ m/$aut_name/;
                 next if $aut_name ne "all" &&  lc($name) !~ m/$aut_name/;
             }
         }
@@ -828,6 +857,19 @@ sub TreatNote {
             my $first_aa_info = "(pos:$aa_start..$aa_end, aa : $value)";
             $CDS_toAdd .= "\t\t\ttransl_except\t$first_aa_info\n";
         }
+        elsif ($qualif eq "substitution") {
+            my $replacement = $qualifs->{"substitution"} =~ /==>\s*(.+)/ ? lc($1) : "";
+            $none_toAdd .= "\t\t\treplace\t$replacement\n";
+        }
+        elsif ($qualif eq "tandem") {
+            $none_toAdd .= "\t\t\trpt_type\ttandem\n";
+        }
+        elsif ($qualif eq "stem_loop") {
+            $Fkey = $qualif;
+        }
+        elsif ($qualif eq "repeat_element" || $qualif eq "repeat_region") {
+            $Fkey = "repeat_region";
+        }
         elsif ($class ne "note") {
             $noStart = "<" if $qualif eq "nostart";
             $noStop  = ">" if $qualif eq "nostop";
@@ -842,17 +884,82 @@ sub TreatNote {
             $desc     =~ s/\%s/$value/;
             $gene_note .= "$desc, " if $forGene;
             $CDS_note  .= "$desc, " if $forCDS;
+            $none_note .= "$desc; " if $forNone;
         }
     }
     $gene_note =~ s/, $//;
-    $CDS_note  =~ s/, $//; 
+    $CDS_note  =~ s/, $//;
+    # Add iub_code if present
+    $none_note .= "; $1" if $startline =~ m/(\(\s*iub_code\s*\w*\))/;
+    $none_note  =~ s/; $//;
+    # Add replace after note
     
     $CDS_note  = "$gene_note, $CDS_note" if $type eq "I" || $type eq "E";
     $gene_note = ""                      if $type eq "I" || $type eq "E"; 
     $gene_toAdd .= "\t\t\tnote\t$gene_note\n" if $gene_note;
     $CDS_toAdd  .= "\t\t\tnote\t$CDS_note\n"  if $CDS_note;
-    return ($gene_toAdd,$CDS_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo);
+    $none_toAdd .= "\t\t\tnote\t$none_note\n" if $none_note;
+    return ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo,$Fkey);
 }
+
+sub TreatVar {
+    my ($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs) = @_;
+
+    $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\tvariation\n";
+    my $varName     = $a_name =~ m/var-(.+)/i ? $1 : "";
+    if ($varName) {
+        if ($none_qualifs) {
+            $none_qualifs =~ s/note\t/note\tVariation $varName; /;
+        }
+        else {
+            $none_qualifs = "\t\t\tnote\tVariation$varName\n";
+        }
+    }
+    $feature_tab   .= $none_qualifs if $none_qualifs;
+    return $feature_tab;
+}
+
+sub TreatMotAndSig {
+    my ($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$type) = @_;
+    
+    $a_name =~ s/-F\d+//;# remove fragment information
+    $FKey = $FKey eq "" ? "misc_feature" : $FKey;
+    $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\t$FKey\n";
+    # Add Elem name
+    my $elemName  = $a_name =~ m/mot-(.+)/i ? $1 : "";
+    if ($FKey eq "repeat_region" && $type eq "S") {
+        $feature_tab  .= "\t\t\trpt_family\tsignal $a_name\n";
+        $elemName = $a_name;
+    }
+    if ($elemName) {
+        $elemName =~ s/\s+$//;
+        my $ToAdd = $FKey ne "stem_loop" ? "Motif element" : "Element";
+        if ($none_qualifs) {
+            $none_qualifs =~ s/note\t/note\t$ToAdd $elemName;/;
+        }
+        else {
+            $none_qualifs = "\t\t\tnote\t$ToAdd $elemName\n";
+        }
+    }    
+    $feature_tab   .= $none_qualifs if $none_qualifs;
+    
+    return $feature_tab if $FKey eq "stem_loop";
+    # Add cp number and label
+    my $cp_num = $add || "";
+       $cp_num =~ s/_//;
+    my $ToAdd  = $cp_num ne "" ? "; Copy number $cp_num" : "";
+    my $label  = "${elemName}$add";
+       $ToAdd .= $label ne ""  ? "; label: $label" : "";
+    if ($startline =~ m/(repeated peptide)=(\w+)/) {
+        $ToAdd .= $startline =~ m/(repeated peptide)=(\w+)/ ? "; $1=$2" : ""
+    }
+    
+    my $old_note  = $1 if $feature_tab =~ m/\t\t\tnote\t(.+)\n$/;
+    my $new_note  = "${old_note}$ToAdd" if $old_note && $ToAdd;
+       $feature_tab  =~ s/\t\t\tnote\t\Q$old_note\E$/\t\t\tnote\t$new_note/ if $new_note && $old_note;
+    return $feature_tab;
+}
+
 
 sub TreatTransSplice {
     my ($contig,$name,$who_overlap) = @_;
@@ -875,7 +982,7 @@ sub TreatTransSplice {
                 my $end       = $annot->get_endpos();
                 my $startline = $annot->get_startline();
                 
-                my ($gene_qualifs,$CDS_qualifs,$noStart,$noStop,$isTransSplice,$haveRef)
+                my ($gene_qualifs,$CDS_qualifs,$none_qualifs,$noStart,$noStop,$isTransSplice,$haveRef,$Fkey)
                     = &TreatQualifiers($annot);
                 my $suffix = $1 if $startline =~ m#G-\S+_([a-z])#;
                 if ($haveRef) {
@@ -946,8 +1053,8 @@ sub WhatOverlapsThis {
     
     ($wstart, $wend) = ($wend, $wstart) if $wend < $wstart;
 
-    my @GEI_annots = grep( $_->get_type() =~ m#^[GEI]$# , @$annotlist);
-    my %RanksGEI   = ( G => 0, E => 1, I => 2 );
+    my @GEI_annots = grep( $_->get_type() =~ m#^[GEIS]$# , @$annotlist);
+    my %RanksGEI   = ( G => 0, E => 1, I => 2, S => 3);
     @GEI_annots    = sort { $a->get_genename() cmp $b->get_genename()
                                                 or
                      $RanksGEI{$a->get_type()} <=> $RanksGEI{$b->get_type()}
@@ -967,7 +1074,7 @@ sub WhatOverlapsThis {
         my ($ostart,$oend) = ($start,$end); # Strandless interval
            ($ostart,$oend) = ($end,$start) if $end < $start;
 
-        if ($type eq "G") {
+        if ($type eq "G" || $type eq "S") {
             next unless # No overlap? next
                 &OverlappingRegions($contiglen,$start,$end,$dir,$wstart,$wend,">"); # Real dir of orf not important
             push(@$groups, [ [ $ostart, $oend, $annotation ] ] );
