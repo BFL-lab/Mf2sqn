@@ -29,9 +29,13 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.15 2011/02/14 14:52:25 nbeck Exp $
+#    $Id: mf2sqn,v 1.16 2011/02/17 23:15:10 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.16  2011/02/17 23:15:10  nbeck
+#    Changed author addition, fixed transpliced, changed note gestion.
+#    Added misc_RNA and polyA_site.
+#
 #    Revision 1.15  2011/02/14 14:52:25  nbeck
 #    Added treatment of Var/Sig/Mot annotation.
 #
@@ -103,7 +107,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.15 2011/02/14 14:52:25 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.16 2011/02/17 23:15:10 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -120,10 +124,7 @@ my $TMPDIR="/tmp/$BASENAME.$$";
 my $GENE_NAME_FILE="/share/supported/apps/ogmp/lib/gene_names.lst";
 my $QUALIF_FILE="/share/supported/apps/ogmp/lib/ogmp_qualifiers.lst";
 my $SUB_INFO_MODEL="/share/supported/apps/mf2sqn/SubInfo";
-my $SUBMITTERLANG="/share/supported/apps/mf2sqn/SubmitterLang.sbt";
-my $SUBMITTERBURGER="/share/supported/apps/mf2sqn/SubmitterBurger.sbt";
-my $SUBMITTERGRAY="/share/supported/apps/mf2sqn/SubmitterGray.sbt";
-my $SUBMITTERGENERIC="/share/supported/apps/mf2sqn/SubmitterGeneric.sbt";
+my $SUBMITTERDIR="/share/supported/apps/mf2sqn/";
 my $TBL2ASN='/share/supported/bin/tbl2asn';
 my $GENE_NAME={};
 my $OGMP_QUALS_CLASSES= {};
@@ -236,10 +237,10 @@ sub Usage {
     print STDERR <<USAGE;
 Basic usage: $BASENAME [-d] [-t] -a author -m masterfile
 
-where: -a author     :  Accepted values : Lang or Burger or Gray.
-                        Looked in '/share/supported/apps/mf2sqn/SubmitterLang.sbt'
-                        or in '/share/supported/apps/mf2sqn/SubmitterBurger.sbt'
-                        or in '/share/supported/apps/mf2sqn/SubmitterGray.sbt'
+where: -a author     :  All submitter file need to be in "/share/supported/apps/mf2sqn/"
+                        and have following format name "SubmitterName.sbt" (need to respect case).
+                        A template can be found in "SubmitterGeneric.sbt" (never remove
+                        this one is used by mfannot online).
                         Each file contain a text ASN.1 Submit-block object.
                         The Submit-block contains contact information (to whom questions
                         on the submission can be addressed) and a submission citation (which lists
@@ -288,11 +289,9 @@ for (;@ARGV;) {
 $MF_NAME = basename($MASTERFILE);
 
 &Usage( "Accepted value for author is Lang or Burger")
-    if lc($AUTHOR) ne "lang" && lc($AUTHOR) ne 'burger' && lc($AUTHOR) ne 'generic' && lc($AUTHOR) ne "gray";
-$AUTHORFILE= $SUBMITTERLANG    if lc($AUTHOR) eq "lang";
-$AUTHORFILE= $SUBMITTERBURGER  if lc($AUTHOR) eq "burger";
-$AUTHORFILE= $SUBMITTERGRAY    if lc($AUTHOR) eq "gray";
-$AUTHORFILE= $SUBMITTERGENERIC if lc($AUTHOR) eq "generic";
+    if !(-e "$SUBMITTERDIR/Submitter$AUTHOR.sbt");
+$AUTHORFILE= "$SUBMITTERDIR/Submitter$AUTHOR.sbt";
+
 die "The author file '$AUTHORFILE' doesn't exist\n"
     unless -f "$AUTHORFILE";
 
@@ -675,59 +674,66 @@ sub AddInfoForGene {
            ($product,$type) = ("hypothetical protein","CDS") if $name =~ m/orf/;
             
             next if $name ne $a_name;
-            my ($gene_qualifs,$CDS_qualifs,$none_qualifs,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo,$FKey) = &TreatQualifiers($annot);
+            
+            my ($gene_qualifs,$CDS_qualifs,$none_qualifs,
+                $noStart,$noStop,
+                $isTransSplice,$haveRef,$isPseudo,$FKey,
+                $CDS_notes,$gene_notes,$none_notes) 
+                = &TreatQualifiers($annot);
             $noStart = "" if !$noStart;
             $noStop  = "" if !$noStop;
+            
+            my $all_notes = [@$CDS_notes,@$gene_notes,@$none_notes];
             # Add information about Sig
-            if ($a_type eq "S") { 
-                $feature_tab = &TreatMotAndSig($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$a_type);
+            if ($a_type eq "S") {
+                $feature_tab = &TreatMotAndSig($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$a_type,$all_notes);
             } 
             elsif ($a_type eq "G") {
                   ($g_noStart,$g_noStop,$g_genequalifs,$g_CDSqualifs,$g_isTransSplice,$g_type)
-                = ($noStart,$noStop,$gene_qualifs,$CDS_qualifs,$isTransSplice,$type);
+                = ($noStart  ,$noStop  ,$gene_qualifs ,$CDS_qualifs ,$isTransSplice  ,$type);
                 
                 # Add information about Var
                 if ($a_name =~ m/^var/i) {
-                    $feature_tab = &TreatVar($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs);
+                    $feature_tab = &TreatVar($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$all_notes);
                     next;
                 }
                 # Add information about Mot
-                if ($a_name =~ m/^mot/i) {
-                    $feature_tab = &TreatMotAndSig($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$a_type);
+                elsif ($a_name =~ m/^mot/i) {
+                    $feature_tab = &TreatMotAndSig($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$a_type,$all_notes);
                     next;
                 }
                 
-                if ($isTransSplice) {
+                # Add gene with introns
+                elsif ($isTransSplice) {
                     $Already_annot->{$name}++;
                     ($exons,$introns,$gene,$citation,$CDS_qualifs) = &TreatTransSplice($contig,$name,$annotation_who_overlap);
-                    $feature_tab = &AddGeneInfo($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop);
+                    $feature_tab = &AddGeneInfo($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop,$gene_notes); # A verifier
                 }
+                
+                # Add gene if without transplice just gene information
                 else {
-                    $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\tgene\n";
+                    my $type = $name =~ m/RNA/ ? "misc_RNA" : "gene";
+                    $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
                     $feature_tab .= "\t\t\tgene\t$name$a_suffix$ac\n";
                     my $frag_name = $a_suffix;
                        $frag_name =~ s/_//;
                     $feature_tab .= $gene_qualifs if $gene_qualifs;
                     $feature_tab .= $CDS_qualifs  if $CDS_qualifs && $isPseudo;
                     
-                    my $old_note  = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
-                    my $new_note  = "$old_note, fragment $frag_name\n" if $frag_name && $old_note;
-                    $feature_tab  =~ s/\t\t\tnote\t\Q$old_note\E\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
-                    $feature_tab .= "\t\t\tnote\tfragment $frag_name\n" if !$old_note && $frag_name;
-                    
+                    push(@$gene_notes,"fragment $frag_name") if $frag_name;
                     my $cp_num = $add;
                        $cp_num =~ s/_//;
-                       $old_note  = $1 if $feature_tab =~ m/^\t\t\tnote\t(.+)\n/;
-                       $new_note  = "$old_note, copy $cp_num\n" if $cp_num && $old_note;
-                    $feature_tab  =~ s/\t\t\tnote\t\Q$old_note\E\n/\t\t\tnote\t\$new_note\n/ if $new_note && $old_note;
-                    $feature_tab .= "\t\t\tnote\tcopy $cp_num\n" if !$old_note && $cp_num;
+                    push(@$gene_notes,"copy $cp_num") if $cp_num;
+                    
+                    my $fusion_note = join("; ",@$gene_notes);
+                    $feature_tab .= "\t\t\tnote\t$fusion_note\n" if $fusion_note;
                     
                     $CIT_info .= "$start\t$end\tREFERENCE\n" if $haveRef;
                     $CIT_info .= "\t\t\tPubMed\t$haveRef\n"  if $haveRef;
                 }
-
+                
                 # CDS info
-                if ($isPseudo != 1) {
+                next if $isPseudo == 1;
                 my $anticodon = &LocateAc($annot,$contig) if $ac;
                 $toAdd       .= "\t\t\tproduct\t$product\n\t\t\tprotein_id\tlcl|${id}$add\n";
                 $toAdd       .= "\t\t\tEC_number\t$EC_number\n" if $EC_number;
@@ -735,11 +741,20 @@ sub AddInfoForGene {
                 
                 next if (scalar(@$annotation_who_overlap) != 1);
                 $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
+                my $fusion_note = join("; ",@$CDS_notes,@$none_notes);
                 $CDS_info .= $toAdd;
+                $CDS_info .= "\t\t\tnote\t$fusion_note\n" if $fusion_note;
                 $CDS_info .= $CDS_qualifs if $CDS_qualifs;
-                }
             }
-            elsif ($a_type eq "E" && !$g_isTransSplice) {
+            # Add information about exon or intron
+            next if ($a_type ne "E" && $a_type ne "I");
+            next if $g_isTransSplice;
+            
+            my $fusion_note  = join("; ",@$CDS_notes) || undef;
+               $CDS_qualifs .= "\t\t\tnote\t$fusion_note\n" if $fusion_note;
+            
+            # Add information about exon
+            if ($a_type eq "E") {
                 next unless $startline =~ m#G-(\S+)-E(\d+)#;
                 my $exnum = $2;
                 $exons->{$exnum} = { 'start' => $start  , 'end'  => $end,
@@ -748,7 +763,8 @@ sub AddInfoForGene {
                 $CIT_info .= "$start\t$end\tREFERENCE\n";
                 $CIT_info .= "\t\t\tPubMed\t$haveRef\n";
             }
-            elsif ($a_type eq "I" && !$g_isTransSplice){
+            # Add information about intron
+            else {
                 next unless $startline =~ m#G-(\S+)-I(\d+)#;
                 my $innum = $2;
                 $introns->{$innum} = { 'start' => $start  , 'end'  => $end,
@@ -759,8 +775,10 @@ sub AddInfoForGene {
             }
         }
         
+        # Added information about CDS, exons/introns and Citation
         ($CDS_info,$EI_info) = &AddExonsInfo($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type);
-        ($CDS_info,$EI_info) = &AddIntronsInfo($introns,$CDS_info,$EI_info);
+        ($CDS_info,$EI_info) = &AddIntronsInfo($introns,$CDS_info,$EI_info)               if !$g_isTransSplice;
+        ($CDS_info,$EI_info) = &AddIntronsInfoForTranspliced($introns,$CDS_info,$EI_info) if $g_isTransSplice;
         $CIT_info            = &AddCitationsInfo($citation) if scalar(keys %$citation);
         
         $feature_tab .= $CDS_info;
@@ -790,7 +808,7 @@ sub TreatQualifiers {
     my $string_for_qualif = $startline;
        $string_for_qualif =~ s/;;.+$//;
        $string_for_qualif = $string_for_qualif =~ m/(<==|==>)\s*(start|point)(.+)/ ? $3 : "";
-    
+       
     # If qualifier invalid, it is ignored
     my %qualifs = ();
     my $err_mess = "";
@@ -801,16 +819,18 @@ sub TreatQualifiers {
     
     return \%qualifs if $isCitation;
     
-    my ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo,$FKey) 
-        = &TreatNote(\%qualifs,$isMinus,$start,$type,$name,$startline) if scalar(keys %qualifs) != 0;
-    return ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo || 0,$FKey);
+    my ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo,$FKey,$CDS_notes,$gene_notes,$none_notes) 
+        = &TreatNote(\%qualifs,$isMinus,$start,$type,$name,$startline);
+    
+    return ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo || 0,$FKey || "",$CDS_notes,$gene_notes,$none_notes);
 }
 
 sub TreatNote {
     my ($qualifs,$isMinus,$aa_start,$type,$name,$startline) = @_;
     
-    my ($CDS_note,$gene_note,$none_note,$CDS_toAdd,$gene_toAdd,$none_toAdd,$Fkey) = ("","","","","","","","");
-    my ($noStart,$noStop,$isTransSplice,$haveRef)    = ("","","","","");
+    my ($CDS_toAdd,$gene_toAdd,$none_toAdd,$Fkey) = ("","","","","");
+    my ($CDS_notes,$gene_notes,$none_notes)       = ([],[],[]);
+    my ($noStart,$noStop,$isTransSplice,$haveRef) = ("","","","","");
     my $aa_end = $isMinus ? $aa_start - 2 : $aa_start + 2;
     my $isIntronic = 1 if $startline =~ m/G-\w+-I\d+-\w+/;
     my $isPseudo   = 0;
@@ -882,81 +902,73 @@ sub TreatNote {
         else {
             my $desc  = $OGMP_QUALS_TEXTS->{$qualif} || "";
             $desc     =~ s/\%s/$value/;
-            $gene_note .= "$desc, " if $forGene;
-            $CDS_note  .= "$desc, " if $forCDS;
-            $none_note .= "$desc; " if $forNone;
+            push(@$CDS_notes,$desc)  if $forCDS;
+            push(@$gene_notes,$desc) if $forGene;
+            push(@$none_notes,$desc) if $forNone;
         }
     }
-    $gene_note =~ s/, $//;
-    $CDS_note  =~ s/, $//;
-    # Add iub_code if present
-    $none_note .= "; $1" if $startline =~ m/(\(\s*iub_code\s*\w*\))/;
-    $none_note  =~ s/; $//;
-    # Add replace after note
     
-    $CDS_note  = "$gene_note, $CDS_note" if $type eq "I" || $type eq "E";
-    $gene_note = ""                      if $type eq "I" || $type eq "E"; 
-    $gene_toAdd .= "\t\t\tnote\t$gene_note\n" if $gene_note;
-    $CDS_toAdd  .= "\t\t\tnote\t$CDS_note\n"  if $CDS_note;
-    $none_toAdd .= "\t\t\tnote\t$none_note\n" if $none_note;
-    return ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo,$Fkey);
+    $Fkey = "polyA_site" if ($type eq "S" && ($name =~ m/polyA/i || $name =~ m/polyadenylation/i));
+    
+    # If annot is intron or exon
+    if ($type eq "I" || $type eq "E") { 
+        push(@$CDS_notes,@$gene_notes);
+        $gene_notes   = []; 
+    }
+    return ($gene_toAdd,$CDS_toAdd,$none_toAdd,$noStart,$noStop,$isTransSplice,$haveRef,$isPseudo,$Fkey,$CDS_notes,$gene_notes,$none_notes);
 }
 
 sub TreatVar {
-    my ($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs) = @_;
+    my ($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$notes) = @_;
 
     $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\tvariation\n";
-    my $varName     = $a_name =~ m/var-(.+)/i ? $1 : "";
-    if ($varName) {
-        if ($none_qualifs) {
-            $none_qualifs =~ s/note\t/note\tVariation $varName; /;
-        }
-        else {
-            $none_qualifs = "\t\t\tnote\tVariation$varName\n";
-        }
-    }
-    $feature_tab   .= $none_qualifs if $none_qualifs;
+    $feature_tab .= $none_qualifs;
+    my $varName   = $a_name =~ m/var-(.+)/i ? $1 : "";
+    push(@$notes,"Variation $varName") if ($varName);
+    my $notes_str = join("; ",@$notes);
+    $feature_tab .= "\t\t\tnote\t$notes_str\n";
     return $feature_tab;
 }
 
 sub TreatMotAndSig {
-    my ($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$type) = @_;
+    my ($feature_tab,$noStart,$start,$g_noStop,$end,$a_name,$none_qualifs,$FKey,$add,$startline,$type,$notes) = @_;
     
     $a_name =~ s/-F\d+//;# remove fragment information
     $FKey = $FKey eq "" ? "misc_feature" : $FKey;
     $feature_tab .= $noStart.$start."\t".$g_noStop.$end."\t$FKey\n";
     # Add Elem name
     my $elemName  = $a_name =~ m/mot-(.+)/i ? $1 : "";
-    if ($FKey eq "repeat_region" && $type eq "S") {
-        $feature_tab  .= "\t\t\trpt_family\tsignal $a_name\n";
+    if (($FKey eq "repeat_region" || $FKey eq "misc_feature") && $type eq "S") {
+        $feature_tab  .= "\t\t\trpt_family\tsignal $a_name\n" if $FKey eq "repeat_region";
         $elemName = $a_name;
     }
     if ($elemName) {
         $elemName =~ s/\s+$//;
         my $ToAdd = $FKey ne "stem_loop" ? "Motif element" : "Element";
         if ($none_qualifs) {
-            $none_qualifs =~ s/note\t/note\t$ToAdd $elemName;/;
+            push(@$notes,$ToAdd);
         }
         else {
-            $none_qualifs = "\t\t\tnote\t$ToAdd $elemName\n";
+            push(@$notes,"$ToAdd $elemName");
         }
-    }    
+    }
     $feature_tab   .= $none_qualifs if $none_qualifs;
     
-    return $feature_tab if $FKey eq "stem_loop";
+    if ($FKey eq "stem_loop") {
+        my $notes_str = join("; ",@$notes);
+        $feature_tab .= "\t\t\tnote\t$notes_str\n";
+        return ($feature_tab);
+    }
+    
     # Add cp number and label
     my $cp_num = $add || "";
        $cp_num =~ s/_//;
-    my $ToAdd  = $cp_num ne "" ? "; Copy number $cp_num" : "";
+    push(@$notes,"Copy number $cp_num") if $cp_num ne "";
     my $label  = "${elemName}$add";
-       $ToAdd .= $label ne ""  ? "; label: $label" : "";
-    if ($startline =~ m/(repeated peptide)=(\w+)/) {
-        $ToAdd .= $startline =~ m/(repeated peptide)=(\w+)/ ? "; $1=$2" : ""
-    }
+    push(@$notes,"label: $label") if $label ne "";
     
-    my $old_note  = $1 if $feature_tab =~ m/\t\t\tnote\t(.+)\n$/;
-    my $new_note  = "${old_note}$ToAdd" if $old_note && $ToAdd;
-       $feature_tab  =~ s/\t\t\tnote\t\Q$old_note\E$/\t\t\tnote\t$new_note/ if $new_note && $old_note;
+    my $notes_str = join("; ",@$notes);
+    $feature_tab .= "\t\t\tnote\t$notes_str\n";
     return $feature_tab;
 }
 
@@ -982,14 +994,20 @@ sub TreatTransSplice {
                 my $end       = $annot->get_endpos();
                 my $startline = $annot->get_startline();
                 
-                my ($gene_qualifs,$CDS_qualifs,$none_qualifs,$noStart,$noStop,$isTransSplice,$haveRef,$Fkey)
+                my ($gene_qualifs,$CDS_qualifs,$none_qualifs,
+                    $noStart,$noStop,
+                    $isTransSplice,$haveRef,$isPseudo,$FKey,
+                    $CDS_notes,$gene_notes,$none_notes) 
                     = &TreatQualifiers($annot);
+                    
                 my $suffix = $1 if $startline =~ m#G-\S+_([a-z])#;
                 if ($haveRef) {
                     $citation->{$count} = { 'start' => $start, 'end' => $end, 'pubmedId' => $haveRef};
                 }
                 if ($type eq "G"){
                     if ($count == 0) {
+                        my $fusion_note   = join("; ",@$gene_notes) || undef;
+                           $gene_qualifs .= "\t\t\tnote\t$fusion_note\n" if $fusion_note;
                         $gene->{"$suffix"} = { 'start' => $start, 'end' => $end, 'gene_qualifs' => $gene_qualifs};
                         $All_CDS_qualifs = $CDS_qualifs;
                     }
@@ -997,17 +1015,24 @@ sub TreatTransSplice {
                         $gene->{"$suffix"} = { 'start' => $start, 'end' => $end};
                     }
                 }
-                elsif ($type eq "E") {
+                # Have exon or intron
+                next if $type ne "E" && $type ne "I";
+                my $fusion_note  = join("; ",@$CDS_notes) || undef;
+                   $CDS_qualifs .= "\t\t\tnote\t$fusion_note\n" if $fusion_note;
+
+                if ($type eq "E") {
                     next unless $startline =~ m#G-(\S+)_([a-z])-E(\d+)#;
                     my ($suffix,$exnum) = ($2,$3);
-                    $exons->{"$suffix-$exnum"} = { 'start' => $start  , 'end'        => $end,
-                                                   'type'  => $type,    'qualifs' => $CDS_qualifs};
+                    
+                    $exons->{"$exnum"} = { 'start' => $start  , 'end'     => $end,
+                                           'type'  => $type,    'qualifs' => $CDS_qualifs};
                 }
-                elsif ($type eq "I"){
+                else {
                     next unless $startline =~ m#G-(\S+)_([a-z])-I(\d+)#;
                     my ($suffix,$innum)  = ($2,$3);
-                    $introns->{"$suffix-$innum"} = { 'start' => $start, 'end'  => $end,
-                                                     'qualifs' => $CDS_qualifs};
+                    
+                    $introns->{"$suffix"}->{"$innum"} = { 'start'   => $start, 'end'  => $end,
+                                                          'qualifs' => $CDS_qualifs};
                 }
                 $count++;
             }
@@ -1192,7 +1217,7 @@ sub AddCitationInfo {
 }
 
 sub AddGeneInfo {
-    my ($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop) = @_;
+    my ($gene,$name,$add,$ac,$feature_tab,$g_noStart,$g_noStop,$notes) = @_;
     
     my $gene_s = scalar keys %$gene;
     my $gene_qualif = "";
@@ -1205,7 +1230,7 @@ sub AddGeneInfo {
         my $end         = $gene->{$num_p}->{'end'};
            $gene_qualif = $gene->{$num_p}->{'gene_qualifs'} if $count == 1;
         
-        $frag_list .= "fragment $num_p => pos:$start..$end, ";
+        $frag_list .= "fragment $num_p (pos:$start..$end), ";
         if ($count == 1) {
             $feature_tab .= $g_noStart.$start."\t".$end."\tgene\n";
         }
@@ -1218,15 +1243,16 @@ sub AddGeneInfo {
         $feature_tab .= "\t\t\tgene\t$name$add$ac\n";
     }
     $frag_list =~ s/, $//;
-    $feature_tab .= "\t\t\tnote\t$frag_list\n";
+    push(@$notes,$frag_list);
     $feature_tab .= $gene_qualif if $gene_qualif;
+    $feature_tab .= "\t\t\tnote\t$frag_list\n";
     return $feature_tab;
 }
 
 sub AddExonsInfo {
     my ($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type) = @_;
     
-    my $exons_s = scalar keys %$exons;
+    my $exons_s = scalar(keys %$exons);
     my $count   = 0;
     for my $num_e ( sort {$a <=> $b} keys %$exons) {
         $count++;
@@ -1249,30 +1275,52 @@ sub AddExonsInfo {
 
 sub AddIntronsInfo {
     my ($introns,$CDS_info,$EI_info) = @_;
+
+    # Complet $EI_info
+    my $count = 0;
+    foreach my $num_i ( sort {$a <=> $b} keys %$introns)  {
+        my $start   = $introns->{$num_i}->{'start'};
+        my $end     = $introns->{$num_i}->{'end'};
+        my $qualifs = $introns->{$num_i}->{'qualifs'} || "";
+        
+        $EI_info .= "$start\t$end\tintron\n";
+        $EI_info .= "\t\t\tnumber\t$num_i\n";
+        $EI_info .= $qualifs if $qualifs;
+    }
+    return ($CDS_info,$EI_info);
+}
+
+sub AddIntronsInfoForTranspliced {
+    my ($introns,$CDS_info,$EI_info,$isTranspliced) = @_;
     
     # In order to know which introns have 2 parts.
     my $IntronCount = {};
-    foreach my $num_i ( sort {$a <=> $b} keys %$introns)  {
-        $num_i = $num_i =~ m/[a-z]-(\d+)/ ? $1 : $num_i;
-        $IntronCount->{$num_i}++;
+    foreach my $suff ( sort {$a cmp $b} keys %$introns)  {
+        my $introns_num = $introns->{$suff};
+        foreach my $num_i (sort {$a <=> $b} keys %$introns_num){
+            $num_i = $num_i =~ m/[a-z]-(\d+)/ ? $1 : $num_i;
+            $IntronCount->{$num_i}++;
+        }
     }
 
     # Complet $EI_info
     my $count = 0;
-    foreach my $num_i ( sort {$a cmp $b} keys %$introns)  {
-        $count++;
-        my $start   = $introns->{$num_i}->{'start'};
-        my $end     = $introns->{$num_i}->{'end'};
-        my $qualifs = $introns->{$num_i}->{'qualifs'} || "";
-        $num_i = $1 if $num_i =~ m/[a-z]-(\d+)/;
-        
-        $EI_info .= "$start\t$end\tintron\n" if $count == 1;
-        $EI_info .= "$start\t$end\n"         if $count != 1;
-        
-        next if $count != $IntronCount->{$num_i};
-        $EI_info .= "\t\t\tnumber\t$num_i\n";
-        $EI_info .= $qualifs if $qualifs;
-        $count    = 0;
+    foreach my $suff ( sort {$a cmp $b} keys %$introns)  {
+        my $introns_num = $introns->{$suff};
+        foreach my $num_i (sort {$a <=> $b} keys %$introns_num){
+            $count++;
+            my $start   = $introns_num->{$num_i}->{'start'};
+            my $end     = $introns_num->{$num_i}->{'end'};
+            my $qualifs = $introns_num->{$num_i}->{'qualifs'} || "";
+            
+            $EI_info .= "$start\t$end\tintron\n" if $count == 1;
+            $EI_info .= "$start\t$end\n"         if $count != 1;
+            
+            next if $count != $IntronCount->{$num_i};
+            $EI_info .= "\t\t\tnumber\t$num_i\n";
+            $EI_info .= $qualifs if $qualifs;
+            $count    = 0;
+        }
     }
     return ($CDS_info,$EI_info);
 }
