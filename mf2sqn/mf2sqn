@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.16 2011/02/17 23:15:10 nbeck Exp $
+#    $Id: mf2sqn,v 1.17 2011/03/18 21:43:09 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.17  2011/03/18 21:43:09  nbeck
+#    Use new version of Masterfile.pir.
+#
 #    Revision 1.16  2011/02/17 23:15:10  nbeck
 #    Changed author addition, fixed transpliced, changed note gestion.
 #    Added misc_RNA and polyA_site.
@@ -107,7 +110,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.16 2011/02/17 23:15:10 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.17 2011/03/18 21:43:09 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -250,6 +253,7 @@ where: -a author     :  All submitter file need to be in "/share/supported/apps/
        
        -d            : Create GenBank file in output.
        -t            : Create Table file in output.
+       -g            : gene_names_file.
 
 USAGE
     print STDERR "\n$message\n" if $message;
@@ -317,7 +321,7 @@ $SIG{'PIPE'} = \&SigCleanup;
 mkdir($TMPDIR,0700) or die "Error: can't create work directory '$TMPDIR': $!\n";
 
 # LOAD THE MF #
-my $PIRMASTER    = PirObject::Masterfile->ObjectFromMasterfile($MASTERFILE);
+my $PIRMASTER    = PirObject::Masterfile->ObjectFromMasterfile($MASTERFILE,1);
 my $CONTIGS      = $PIRMASTER->get_contigs();
 my $NB_CONTIGS   = scalar(@$CONTIGS);
 
