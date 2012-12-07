@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.17 2011/03/18 21:43:09 nbeck Exp $
+#    $Id: mf2sqn,v 1.18 2012/12/07 02:59:53 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.18  2012/12/07 02:59:53  nbeck
+#    Multiple reference.
+#
 #    Revision 1.17  2011/03/18 21:43:09  nbeck
 #    Use new version of Masterfile.pir.
 #
@@ -110,7 +113,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.17 2011/03/18 21:43:09 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.18 2012/12/07 02:59:53 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -428,8 +431,13 @@ sub CheckInfoEntry {
             $SUBINFO->{'STRAIN'}     = $value if lc($field) eq "strain";
             $SUBINFO->{'TITLE'}      = $value if lc($field) eq "title";
             $SUBINFO->{'COMMENT'}    = $value if lc($field) eq "comment";
-            die "Accepted value for field 'CITATION' in $SUBINFOFILE is only number\n" 
-                if lc($field) eq "citation" && $value =~ m/\D+/;
+	    if (lc($field) eq "citation") {
+	      my @ids = split(",",$value);
+	      foreach my $id (@ids) {
+	        die "Accepted value for field 'CITATION' in $SUBINFOFILE is only number\n" 
+		  if $id =~ m/\D+/;
+	      }
+	    }
             $SUBINFO->{'CITATION'}   = $value if lc($field) eq "citation";
         }
     }
@@ -595,14 +603,15 @@ sub CreateTableFile {
     foreach my $contig (@$CONTIGS) {
         my $annotations   = $contig->get_annotations();
         my $seq           = $contig->get_sequence();
-        my $PubMedId       = $SUBINFO->{'CITATION'};
+        my $PubMedId      = $SUBINFO->{'CITATION'};
+	my @PubMedId    = split(",",$PubMedId);
         my $Already_annot = {}; # Hash use for trans-spliced gene.
         my $annots_no_comment = [];
            $feature_tab      .= ">Feature C_$count Table1\n";
-        if ($PubMedId) {
+       foreach my $id (@PubMedId) {
             my $seq_len = $contig->get_sequencelength();
             $feature_tab .= "1\t$seq_len\tREFERENCE\n";
-            $feature_tab .= "\t\t\tPubMed\t$PubMedId\n";
+            $feature_tab .= "\t\t\tPubMed\t$id\n";
         }
         
         my ($cg_orfs,$ct_orfs)   = ({},{});
