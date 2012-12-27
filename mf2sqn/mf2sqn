@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.18 2012/12/07 02:59:53 nbeck Exp $
+#    $Id: mf2sqn,v 1.19 2012/12/27 03:58:42 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.19  2012/12/27 03:58:42  nbeck
+#    Fixed tRNA position.
+#
 #    Revision 1.18  2012/12/07 02:59:53  nbeck
 #    Multiple reference.
 #
@@ -113,7 +116,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.18 2012/12/07 02:59:53 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.19 2012/12/27 03:58:42 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -1396,6 +1399,7 @@ sub LocateAc {
     
     # Define AC position
     my $uc_ac = uc($ac);
+    $trna_seq    =~ s/!+/!/g;
     my $ac_start = index(uc($trna_seq),"!$uc_ac!");
     print "Can't defined anticodon for $name at pos : $o_start..$o_end\n" if $ac_start == -1;
     return if $ac_start == -1;
