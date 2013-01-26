@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.19 2012/12/27 03:58:42 nbeck Exp $
+#    $Id: mf2sqn,v 1.20 2013/01/26 14:18:41 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.20  2013/01/26 14:18:41  nbeck
+#    Added X element for gene wo exons/introns.
+#
 #    Revision 1.19  2012/12/27 03:58:42  nbeck
 #    Fixed tRNA position.
 #
@@ -116,7 +119,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.19 2012/12/27 03:58:42 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.20 2013/01/26 14:18:41 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -607,7 +610,7 @@ sub CreateTableFile {
         my $annotations   = $contig->get_annotations();
         my $seq           = $contig->get_sequence();
         my $PubMedId      = $SUBINFO->{'CITATION'};
-	my @PubMedId    = split(",",$PubMedId);
+        my @PubMedId    = split(",",$PubMedId);
         my $Already_annot = {}; # Hash use for trans-spliced gene.
         my $annots_no_comment = [];
            $feature_tab      .= ">Feature C_$count Table1\n";
@@ -628,10 +631,15 @@ sub CreateTableFile {
             push(@$annots_no_comment,$annot);
         }
         
+        my $AP_key = {};
         foreach my $annot (@$annots_no_comment) {
             next if ($annot->get_type() ne "G" && $annot->get_type() ne "S");
+            my $id_AP  = $1 if scalar($annot) =~ m/0x(.+)\)/;
+            $AP_key->{$id_AP} += 1;
+            next if $AP_key->{$id_AP} != 1;
             my $name = $annot->get_genename();
                $name = $1 if $name =~ m#(.+)_[a-z]$#;
+            next if $name =~ m/X\d+$/;
             $feature_tab = &AddCitationInfo($annot,$feature_tab) if ($name =~ m/citation/i);
             next if $name =~ m/citation/i;
             next if $Already_annot->{$name};
@@ -655,8 +663,24 @@ sub CreateTableFile {
 
 sub AddInfoForGene {
     my ($annot_who_overlap,$feature_tab,$name,$orfnum,$contig,$Already_annot) = @_;
-    
+
+    # Separate X element
+    my ($annot_who_overlap_w_X,$annot_X) = ((),());
     foreach my $annotation_who_overlap (@$annot_who_overlap){
+      if (scalar(@$annotation_who_overlap) != 1) {
+        push(@$annot_who_overlap_w_X,$annotation_who_overlap);
+        next;
+      }
+      foreach my $feature_who_overlap (@$annotation_who_overlap) {  
+          my $annot  = $feature_who_overlap->[2];
+          my $a_name = $annot->get_genename();
+          ($a_name =~ m/X\d+$/) ? push(@$annot_X,$annot) : push(@$annot_who_overlap_w_X,$annotation_who_overlap);
+      }
+    }
+    
+    my $AP_key = {};
+    my $X_key  = {};
+    foreach my $annotation_who_overlap (@$annot_who_overlap_w_X){
         my ($CDS_info,$toAdd,$EI_info,$CIT_info,$id) = ("","","","","");
         my ($exons,$introns,$gene,$citation) = ({},{},{},{});
         my ($g_noStart,$g_noStop,$g_genequalifs,$g_CDSqualifs,$g_isTransSplice,$g_type) = ("","","","","","");
@@ -666,13 +690,22 @@ sub AddInfoForGene {
             my $a_suffix = "";
             my $a_name = $annot->get_genename();
             ($a_name,$a_suffix) = ($1,"_$2") if $a_name =~ m#(.+)_([a-z])#;
+            my $id_AP  = $1 if scalar($annot) =~ m/0x(.+)\)/;
+            $AP_key->{$id_AP} += 1;
+            my $already_treat = $AP_key->{$id_AP} != 1 ? 1 : 0;
+            last if $already_treat == 1 ;
             
             next if $a_name  =~ m/citation/i;
             my $a_type    = $annot->get_type();
             my $start     = $annot->get_startpos();
             my $end       = $annot->get_endpos();
             my $startline = $annot->get_startline();
-            
+            my $isMinus   = ( $annot->get_direction eq "==>" ? 0 : 1);
+            if ($annot_X) {
+              @$annot_X  = $isMinus ? sort { $b->get_startpos() <=> $a->get_startpos() } @$annot_X 
+                     : sort { $a->get_startpos() <=> $b->get_startpos() } @$annot_X;
+            }
+    
                $id        =" G-$name" if $a_type eq "G";
             my $add       = $orfnum ? "_$orfnum" : "";
                $add       = !$add && $startline =~ m/G-\S+(_\d+)/ ? $1 : $add;
@@ -756,7 +789,34 @@ sub AddInfoForGene {
                 $toAdd       .= $anticodon                      if $anticodon;
                 
                 next if (scalar(@$annotation_who_overlap) != 1);
-                $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
+                my $cnt     = 0;
+                my $nb_elem = $annot_X ? scalar(@$annot_X) : 0 ;
+                if ($nb_elem != 0) {
+                  foreach my $X_elem (@$annot_X) {
+                    # First
+                    if ($cnt == 0) {
+                      $end = $isMinus ? $X_elem->get_startpos() + 1 : $X_elem->get_startpos() - 1;
+                    } 
+                    # other
+                    elsif ( $cnt != 0 ) {
+                      $start   = $isMinus ? @$annot_X[$cnt-1]->get_endpos() - 1 : @$annot_X[$cnt-1]->get_endpos() + 1;
+                      $end     = $isMinus ?  $X_elem->get_startpos() + 1 : $X_elem->get_startpos() - 1;
+                    }
+                    
+                    $type = "" if $cnt != 0;
+                    $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
+                    
+                    if ($cnt + 1 == $nb_elem) {
+                     $start = $isMinus ?  @$annot_X[$cnt]->get_endpos() - 1 : @$annot_X[$cnt]->get_endpos() + 1;
+                     $end   = $annot->get_endpos();
+                     $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\n";
+                    }
+                    $cnt++;
+                  }
+                } else {
+                  $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
+                }
+                
                 my $fusion_note = join("; ",@$CDS_notes,@$none_notes);
                 $CDS_info .= $toAdd;
                 $CDS_info .= "\t\t\tnote\t$fusion_note\n" if $fusion_note;
@@ -791,6 +851,21 @@ sub AddInfoForGene {
             }
         }
         
+        my $X_info = "";
+        foreach my $X_elem (@$annot_X) {
+          my $id_X  = $1 if scalar($X_elem) =~ m/0x(.+)\)/;
+          $X_key->{$id_X} += 1;
+          my $already_treat = $X_key->{$id_X} != 1 ? 1 : 0;
+          last if $already_treat == 1 ;
+          my $start = $X_elem->get_startpos();
+          my $end   = $X_elem->get_endpos();
+          my $name  = $X_elem->get_genename();
+             $name  = $1 if $name =~ m#(\S+)-X(\d+)#; 
+             $X_info  .= $start."\t".$end."\tmisc_feature\n";
+             $X_info  .= "\t\tgene\t$name\n";
+             $X_info  .= "\t\tnote\tnon\-coding translational bypass region in mRNA due to secondary structure formation\n";
+        }
+        
         # Added information about CDS, exons/introns and Citation
         ($CDS_info,$EI_info) = &AddExonsInfo($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type);
         ($CDS_info,$EI_info) = &AddIntronsInfo($introns,$CDS_info,$EI_info)               if !$g_isTransSplice;
@@ -799,6 +874,7 @@ sub AddInfoForGene {
         
         $feature_tab .= $CDS_info;
         $feature_tab .= $EI_info;
+        $feature_tab .= $X_info;
         $feature_tab .= $CIT_info;
     }
     return ($feature_tab,$Already_annot);
