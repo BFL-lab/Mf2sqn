@@ -29,9 +29,12 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
 #
-#    $Id: mf2sqn,v 1.20 2013/01/26 14:18:41 nbeck Exp $
+#    $Id: mf2sqn,v 1.21 2013/10/15 01:05:30 nbeck Exp $
 #
 #    $Log: mf2sqn,v $
+#    Revision 1.21  2013/10/15 01:05:30  nbeck
+#    Added support for byp elem for gene with introns.
+#
 #    Revision 1.20  2013/01/26 14:18:41  nbeck
 #    Added X element for gene wo exons/introns.
 #
@@ -119,7 +122,7 @@ PirObject->LoadDataModel("Masterfile");               # Masterfile object
 umask 027;
 
 # Program's name and version number.
-$RCS_VERSION='$Id: mf2sqn,v 1.20 2013/01/26 14:18:41 nbeck Exp $';
+$RCS_VERSION='$Id: mf2sqn,v 1.21 2013/10/15 01:05:30 nbeck Exp $';
 ($VERSION) = ($RCS_VERSION =~ m#,v ([\w\.]+)#);
 my ($BASENAME) = ($0 =~ /([^\/]+)$/);
 
@@ -609,6 +612,7 @@ sub CreateTableFile {
     foreach my $contig (@$CONTIGS) {
         my $annotations   = $contig->get_annotations();
         my $seq           = $contig->get_sequence();
+        my $seq_length    = $contig->get_sequencelength();
         my $PubMedId      = $SUBINFO->{'CITATION'};
         my @PubMedId    = split(",",$PubMedId);
         my $Already_annot = {}; # Hash use for trans-spliced gene.
@@ -625,7 +629,6 @@ sub CreateTableFile {
         foreach my $annot (@$annotations) {
             my $type = $annot->get_type();
             my $name = $annot->get_genename();
-            
             next if $type eq "C";
             $cg_orfs->{$name}++ if defined($name) && $name =~ m/orf\d+/;
             push(@$annots_no_comment,$annot);
@@ -639,18 +642,18 @@ sub CreateTableFile {
             next if $AP_key->{$id_AP} != 1;
             my $name = $annot->get_genename();
                $name = $1 if $name =~ m#(.+)_[a-z]$#;
-            next if $name =~ m/X\d+$/;
+            next if $name =~ m/byp\d+$/;
             $feature_tab = &AddCitationInfo($annot,$feature_tab) if ($name =~ m/citation/i);
             next if $name =~ m/citation/i;
             next if $Already_annot->{$name};
             my $start = $annot->get_startpos();
             my $end   = $annot->get_endpos();
-
+            
             # Annotation of gene
             $ct_orfs->{$name}++ if $cg_orfs->{$name} && $cg_orfs->{$name} > 1;
             my $annot_who_overlap = &WhatOverlapsThis($start,$end,$contig);
             my $orfnum = $ct_orfs->{$name};
-            ($feature_tab,$Already_annot) = &AddInfoForGene($annot_who_overlap,$feature_tab,$name,$orfnum,$contig,$Already_annot);
+            ($feature_tab,$Already_annot) = &AddInfoForGene($annot_who_overlap,$feature_tab,$name,$orfnum,$contig,$Already_annot,$seq_length);
         }
         $feature_tab .= "\n";
         $count++;
@@ -662,25 +665,25 @@ sub CreateTableFile {
 }
 
 sub AddInfoForGene {
-    my ($annot_who_overlap,$feature_tab,$name,$orfnum,$contig,$Already_annot) = @_;
+    my ($annot_who_overlap,$feature_tab,$name,$orfnum,$contig,$Already_annot,$seq_length) = @_;
 
     # Separate X element
-    my ($annot_who_overlap_w_X,$annot_X) = ((),());
+    my ($annot_who_overlap_w_byp,$annot_byp) = ((),());
     foreach my $annotation_who_overlap (@$annot_who_overlap){
       if (scalar(@$annotation_who_overlap) != 1) {
-        push(@$annot_who_overlap_w_X,$annotation_who_overlap);
+        push(@$annot_who_overlap_w_byp,$annotation_who_overlap);
         next;
       }
       foreach my $feature_who_overlap (@$annotation_who_overlap) {  
           my $annot  = $feature_who_overlap->[2];
           my $a_name = $annot->get_genename();
-          ($a_name =~ m/X\d+$/) ? push(@$annot_X,$annot) : push(@$annot_who_overlap_w_X,$annotation_who_overlap);
+          ($a_name =~ m/byp\d+$/) ? push(@$annot_byp,$annot) : push(@$annot_who_overlap_w_byp,$annotation_who_overlap);
       }
     }
     
     my $AP_key = {};
     my $X_key  = {};
-    foreach my $annotation_who_overlap (@$annot_who_overlap_w_X){
+    foreach my $annotation_who_overlap (@$annot_who_overlap_w_byp){
         my ($CDS_info,$toAdd,$EI_info,$CIT_info,$id) = ("","","","","");
         my ($exons,$introns,$gene,$citation) = ({},{},{},{});
         my ($g_noStart,$g_noStop,$g_genequalifs,$g_CDSqualifs,$g_isTransSplice,$g_type) = ("","","","","","");
@@ -701,9 +704,9 @@ sub AddInfoForGene {
             my $end       = $annot->get_endpos();
             my $startline = $annot->get_startline();
             my $isMinus   = ( $annot->get_direction eq "==>" ? 0 : 1);
-            if ($annot_X) {
-              @$annot_X  = $isMinus ? sort { $b->get_startpos() <=> $a->get_startpos() } @$annot_X 
-                     : sort { $a->get_startpos() <=> $b->get_startpos() } @$annot_X;
+            if ($annot_byp) {
+              @$annot_byp  = $isMinus ? sort { $b->get_startpos() <=> $a->get_startpos() } @$annot_byp 
+                     : sort { $a->get_startpos() <=> $b->get_startpos() } @$annot_byp;
             }
     
                $id        =" G-$name" if $a_type eq "G";
@@ -789,33 +792,8 @@ sub AddInfoForGene {
                 $toAdd       .= $anticodon                      if $anticodon;
                 
                 next if (scalar(@$annotation_who_overlap) != 1);
-                my $cnt     = 0;
-                my $nb_elem = $annot_X ? scalar(@$annot_X) : 0 ;
-                if ($nb_elem != 0) {
-                  foreach my $X_elem (@$annot_X) {
-                    # First
-                    if ($cnt == 0) {
-                      $end = $isMinus ? $X_elem->get_startpos() + 1 : $X_elem->get_startpos() - 1;
-                    } 
-                    # other
-                    elsif ( $cnt != 0 ) {
-                      $start   = $isMinus ? @$annot_X[$cnt-1]->get_endpos() - 1 : @$annot_X[$cnt-1]->get_endpos() + 1;
-                      $end     = $isMinus ?  $X_elem->get_startpos() + 1 : $X_elem->get_startpos() - 1;
-                    }
-                    
-                    $type = "" if $cnt != 0;
-                    $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
-                    
-                    if ($cnt + 1 == $nb_elem) {
-                     $start = $isMinus ?  @$annot_X[$cnt]->get_endpos() - 1 : @$annot_X[$cnt]->get_endpos() + 1;
-                     $end   = $annot->get_endpos();
-                     $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\n";
-                    }
-                    $cnt++;
-                  }
-                } else {
-                  $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
-                }
+                # last argument is num_exon in case of gene without exon/intron value is set to 0.
+                $CDS_info = &InsertCoordinateOfBypElement($annot_byp,$annot->get_endpos(),$start,$noStart,$end,$g_noStop,$type,$isMinus,$CDS_info,0);
                 
                 my $fusion_note = join("; ",@$CDS_notes,@$none_notes);
                 $CDS_info .= $toAdd;
@@ -834,7 +812,7 @@ sub AddInfoForGene {
                 next unless $startline =~ m#G-(\S+)-E(\d+)#;
                 my $exnum = $2;
                 $exons->{$exnum} = { 'start' => $start  , 'end'  => $end,
-                                     'type'  => $type,    'qualifs' => $CDS_qualifs};
+                                     'type'  => $type,    'qualifs' => $CDS_qualifs, 'direction' => $annot->get_direction()  };
                 next if !$haveRef;
                 $CIT_info .= "$start\t$end\tREFERENCE\n";
                 $CIT_info .= "\t\t\tPubMed\t$haveRef\n";
@@ -852,14 +830,14 @@ sub AddInfoForGene {
         }
         
         my $X_info = "";
-        foreach my $X_elem (@$annot_X) {
-          my $id_X  = $1 if scalar($X_elem) =~ m/0x(.+)\)/;
+        foreach my $byp_elem (@$annot_byp) {
+          my $id_X  = $1 if scalar($byp_elem) =~ m/0x(.+)\)/;
           $X_key->{$id_X} += 1;
           my $already_treat = $X_key->{$id_X} != 1 ? 1 : 0;
           last if $already_treat == 1 ;
-          my $start = $X_elem->get_startpos();
-          my $end   = $X_elem->get_endpos();
-          my $name  = $X_elem->get_genename();
+          my $start = $byp_elem->get_startpos();
+          my $end   = $byp_elem->get_endpos();
+          my $name  = $byp_elem->get_genename();
              $name  = $1 if $name =~ m#(\S+)-X(\d+)#; 
              $X_info  .= $start."\t".$end."\tmisc_feature\n";
              $X_info  .= "\t\tgene\t$name\n";
@@ -867,7 +845,7 @@ sub AddInfoForGene {
         }
         
         # Added information about CDS, exons/introns and Citation
-        ($CDS_info,$EI_info) = &AddExonsInfo($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type);
+        ($CDS_info,$EI_info) = &AddExonsInfo($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type,$annot_byp,$seq_length);
         ($CDS_info,$EI_info) = &AddIntronsInfo($introns,$CDS_info,$EI_info)               if !$g_isTransSplice;
         ($CDS_info,$EI_info) = &AddIntronsInfoForTranspliced($introns,$CDS_info,$EI_info) if $g_isTransSplice;
         $CIT_info            = &AddCitationsInfo($citation) if scalar(keys %$citation);
@@ -878,6 +856,40 @@ sub AddInfoForGene {
         $feature_tab .= $CIT_info;
     }
     return ($feature_tab,$Already_annot);
+}
+
+sub InsertCoordinateOfBypElement {
+    my ($annot_byp,$annot_endpos,$start,$noStart,$end,$g_noStop,$type,$isMinus,$CDS_info,$num_exon) = @_;
+    
+    my $nb_elem = $annot_byp ? scalar(@$annot_byp) : 0 ;
+    if ($nb_elem != 0) {
+        my $cnt     = 0;
+        foreach my $byp_elem (@$annot_byp) {
+            # First
+            if ($cnt == 0) {
+                $end = $isMinus ? $byp_elem->get_startpos() + 1 : $byp_elem->get_startpos() - 1;
+            } 
+            # Other
+            elsif ( $cnt != 0 ) {
+                $start   = $isMinus ? @$annot_byp[$cnt-1]->get_endpos() - 1 : @$annot_byp[$cnt-1]->get_endpos() + 1;
+                $end     = $isMinus ?  $byp_elem->get_startpos() + 1 : $byp_elem->get_startpos() - 1;
+            }
+                    
+            $type = "" if $cnt != 0 || $num_exon > 1;
+            $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
+                    
+            # Last
+            if ($cnt + 1 == $nb_elem) {
+                $start = $isMinus ?  @$annot_byp[$cnt]->get_endpos() - 1 : @$annot_byp[$cnt]->get_endpos() + 1;
+                $end   = $annot_endpos;
+                $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\n";
+            }
+            $cnt++;
+        }
+    } else {
+        $CDS_info .= $noStart.$start."\t".$g_noStop.$end."\t$type\n";
+    }
+    return $CDS_info;
 }
 
 sub TreatQualifiers {
@@ -1342,21 +1354,44 @@ sub AddGeneInfo {
 }
 
 sub AddExonsInfo {
-    my ($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type) = @_;
+    my ($exons,$CDS_info,$EI_info,$g_noStart,$g_noStop,$g_CDSqualifs,$toAdd,$g_type,$annot_byp,$seq_length) = @_;
     
     my $exons_s = scalar(keys %$exons);
     my $count   = 0;
+    # Create information by exons.
+    for my $num_e ( sort {$a <=> $b} keys %$exons) {
+        my $start    = $exons->{$num_e}->{'start'};
+        my $end      = $exons->{$num_e}->{'end'};
+        my $exon_dir = $exons->{$num_e}->{'direction'};
+        my $exon_annot_byp = [];
+        foreach my $byp_elem (@$annot_byp) {
+          my $byp_start = $byp_elem->get_startpos();
+          my $byp_end   = $byp_elem->get_endpos();
+          my $byp_dir   = $byp_elem->get_direction();
+          my $is_overlapping = &OverlappingRegions($seq_length,$byp_start,$byp_end,$byp_dir,$start,$end,$exon_dir);
+          push(@$exon_annot_byp, $byp_elem) if $is_overlapping;
+        }
+      $exons->{$num_e}->{'annot_byp'} = $exon_annot_byp;
+      my $aa = 0;
+    }
+    
+    
     for my $num_e ( sort {$a <=> $b} keys %$exons) {
         $count++;
-        my $start   = $exons->{$num_e}->{'start'};
-        my $end     = $exons->{$num_e}->{'end'};
-        my $qualifs = $exons->{$num_e}->{'qualifs'} || "";
+        my $start          = $exons->{$num_e}->{'start'};
+        my $end            = $exons->{$num_e}->{'end'};
+        my $qualifs        = $exons->{$num_e}->{'qualifs'} || "";
+        my $exon_annot_byp = $exons->{$num_e}->{'annot_byp'};
+        my $isMinus        = $exons->{$num_e}->{'direction'} eq "==>" ? 0 : 1;
         $num_e = $1 if $num_e =~ m/[a-z]-(\d+)/;
-        
-        $CDS_info .= $g_noStart.$start."\t".$g_noStop.$end."\t$g_type\n" if $count == 1;
-        $CDS_info .= $g_noStart.$start."\t".$g_noStop.$end."\n"          if $count != 1;
-                                
-        $CDS_info .= $toAdd     if $count == $exons_s;
+        if (scalar(@$exon_annot_byp) != 0) {
+          $CDS_info = &InsertCoordinateOfBypElement($exon_annot_byp,$end,$start,$g_noStart,$end,$g_noStop,$g_type,$isMinus,$CDS_info,$num_e) 
+        }
+        else {
+          $CDS_info .= $count == 1 ? $g_noStart.$start."\t".$g_noStop.$end."\t$g_type\n" 
+                                    : $g_noStart.$start."\t".$g_noStop.$end."\n";
+        }
+        $CDS_info .= $toAdd        if $count == $exons_s;
         $CDS_info .= $g_CDSqualifs if $g_CDSqualifs && $count == $exons_s;
         $EI_info  .= "$start\t$end\texon\n";
         $EI_info  .= "\t\t\tnumber\t$num_e\n";
@@ -1434,7 +1469,7 @@ sub AddCitationsInfo {
 
 sub LocateAc {
     my ($annot,$contig) = @_;
-    
+	    
     my $isMinus = ( $annot->get_direction eq "==>" ? 0 : 1);
     my $cg_len  = $contig->get_sequencelength();
     
