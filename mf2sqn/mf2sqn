@@ -482,7 +482,7 @@ sub CheckFieldAndComp {
 sub MakeFastaFile {
     my $count      = 0;
     my $format_seq = "";
-    my $file_name  = "$MF_NAME.fsa";
+    my $file_name  = $MF_NAME =~ m/\.fsa$/ ? "$MF_NAME" : "$MF_NAME.fsa";
     foreach my $contig (@$CONTIGS) {
         my $seq  = lc($contig->get_sequence());
            $seq  =~ s/!//g;
