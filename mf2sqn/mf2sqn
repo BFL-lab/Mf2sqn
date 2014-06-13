@@ -303,6 +303,8 @@ for (;@ARGV;) {
 &Usage( "Error: the masterfile '$MASTERFILE' supplied with -m doesn't exist\n" )
     unless -f "$MASTERFILE";
 $MF_NAME = basename($MASTERFILE);
+my $MF_NAME_S = basename($MASTERFILE);
+$MF_NAME_S =~ s/\.fsa/\.f_s_a_$$/g;
 
 &Usage( "Accepted value for author is Lang or Burger")
     if !(-e "$SUBMITTERDIR/Submitter$AUTHOR.sbt");
@@ -482,7 +484,7 @@ sub CheckFieldAndComp {
 sub MakeFastaFile {
     my $count      = 0;
     my $format_seq = "";
-    my $file_name  = $MF_NAME =~ m/\.fsa$/ ? "$MF_NAME" : "$MF_NAME.fsa";
+    my $file_name  = "$MF_NAME_S.fsa";
     foreach my $contig (@$CONTIGS) {
         my $seq  = lc($contig->get_sequence());
            $seq  =~ s/!//g;
@@ -607,7 +609,7 @@ sub ParseQualifList {
 
 sub CreateTableFile {
     my $count = 0;
-    my $file_name   = "$MF_NAME.tbl";
+    my $file_name   = "$MF_NAME_S.tbl";
     my $feature_tab = "";
     foreach my $contig (@$CONTIGS) {
         my $annotations   = $contig->get_annotations();
@@ -1538,9 +1540,9 @@ sub RunTBL2ASN {
        print "$cmd\n" if $DEBUG;
     system("$cmd");
     
-    my $sqnFile = "$TMPDIR/$MF_NAME.sqn";
-    my $gbFile  = "$TMPDIR/$MF_NAME.gbf";
-    my $tbFile  = "$TMPDIR/$MF_NAME.tbl";
+    my $sqnFile = "$TMPDIR/$MF_NAME_S.sqn";
+    my $gbFile  = "$TMPDIR/$MF_NAME_S.gbf";
+    my $tbFile  = "$TMPDIR/$MF_NAME_S.tbl";
     my ($sqnOutput,$gbOutput,$tbOutput) = &DefineOutputName();
     copy($sqnFile, $sqnOutput) or die "File '$sqnFile' cannot be copied in '$sqnOutput'.\n";
     my @sqnOut = split(/\//, $sqnOutput);
