@@ -1,0 +1,447 @@
+#
+#	OGMP Gene Names Database
+#
+#	IMPORTANT POINTS:
+#	-----------------
+#	A) This file is accessed by other programs. Be careful when modifying it.
+#	B) Use a very wide window to view/modify this file.
+#
+#	DESCRIPTION:
+#	------------
+#	Each field is separated a vertical bar (|). Blanks surrounding each
+#	bar are ignored. There must be exactly SIX fields per line.
+#
+#	Fields that are unset should contain a single "-".
+#
+#	The first field is a list of gene names separated by "=". The first
+#	name is the official (prefered) name and all others are synonyms.
+#	Case is not sensitive when matching names to the list, but when programs
+#	use the prefered name they will use the exact spelling mentionned there.
+#
+#	last update:06_03_10 ; GB: 18dec2015
+#
+#
+#	Mitochondria encoded genes
+#                          |  Product   |
+# Gene names               |  Type      |  Product name                                                          |  General function                                  |  Enzyme complex           |  E.C. number
+#==========================|============|========================================================================|====================================================|===========================|=================
+atp1=atpA                  | protein    | ATP synthase F1 subunit alpha                                          | ox. phosphorylation                                | ATP synthase              | 3.6.3.14  
+atp2                       | protein    | ATP synthase F1 subunit beta                                           | ox. phosphorylation                                | ATP synthase              | 3.6.3.14  
+atp3                       | protein    | ATP synthase F1 subunit gamma                                          | ox. phosphorylation                                | ATP synthase              | 3.6.3.14  
+atp4=ymf39                 | protein    | ATP synthase F0 subunit b                                              | ox. phosphorylation                                | ATP synthase              | 3.6.3.14  
+atp5                       | protein    | ATP synthase F1 subunit OSCP                                           | ox. phosphorylation                                | ATP synthase              | 3.6.3.14  
+atp6=MURF4                 | protein    | ATP synthase F0 subunit a                                              | ox. phosphorylation                                | ATP synthase              | 3.6.3.14  
+atp8=ymf19=orfB            | protein    | ATP synthase F0 subunit 8                                              | ox. phosphorylation                                | ATP synthase              | 3.6.3.14  
+atp9                       | protein    | ATP synthase F0 subunit c                                              | ox. phosphorylation                                | ATP synthase              | 3.6.3.14  
+ccmA=yejW                  | protein    | ABC transporter ATP-binding subunit                                    | cytochrome c1 biosynthesis,transmembrane transport | ABC transporter           | -         
+ccmB=yejV                  | protein    | ABC transporter channel subunit                                        | cytochrome c1 biosynthesis,transmembrane transport | ABC transporter           | -         
+ccmC=yejU=ymf4             | protein    | ABC transporter subunit C                                              | cytochrome c1 biosynthesis,transmembrane transport | ABC transporter           | -         
+ccmF=yejR=ccl1             | protein    | haem lyase                                                             | haem c1 biosynthesis                               | -                         | -         
+cms                        | protein    | cytoplasmic male sterility protein                                     | -                                                  | -                         | -         
+cob=cytB                   | protein    | apocytochrome b                                                        | electron transport                                 | respiratory complex III   | 1.10.2.2  
+cox1=coxI                  | protein    | cytochrome c oxidase subunit 1                                         | electron transport                                 | respiratory complex IV    | 1.9.3.1   
+cox11                      | protein    | protein involved in haem biosynthesis                                  | haem biosynthesis                                  | -                         | -         
+cox15                      | protein    | cytochrome c oxidase subunit 15                                        | electron transport                                 | respiratory complex IV    | 1.9.3.1 
+cox1_cox2                  | protein    | fusion of cytochrome c oxidase subunit 1,2                             | electron transport                                 | respiratory complex IV    | 1.9.3.1   
+cox2=coxII                 | protein    | cytochrome c oxidase subunit 2                                         | electron transport                                 | respiratory complex IV    | 1.9.3.1   
+cox3=coxIII                | protein    | cytochrome c oxidase subunit 3                                         | electron transport                                 | respiratory complex IV    | 1.9.3.1   
+dam=mtf                    | protein    | DNA adenine methyltransferase                                          | methyltransferase activity                         | -                         | -         
+dpo                        | protein    | DNA polymerase                                                         | replication                                        | DNA polymerase            | 2.7.7.7   
+endonuclease               | protein    | endonuclease                                                           | -                                                  | -                         | -         
+g_atp6                     | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_cob=gCYb                 | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_cox2                     | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_cox3=gCOIII              | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_CR3                      | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_CR5                      | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_gene                     | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+GIY-YIG                    | protein    | GIY-YIG endonuclease                                                   | -                                                  | -                         | -         
+g_MURF2                    | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_MURF4                    | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_nad7=gND7                | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_nad8=gND8                | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_nad9=gND9                | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+g_rps12                    | RNA        | guide rna                                                              | RNA editing                                        | -                         | -         
+LAGLIDADG                  | protein    | LAGLIDADG endonuclease                                                 | -                                                  | -                         | -         
+matR                       | protein    | intron maturase                                                        | RNA-directed DNA polymerase activity; endodeoxyribonuclear activity | -                         | -         
+mutS=msh1                  | protein    | mutS-like protein                                                      | DNA repair                                         | -                         | -         
+nad1                       | protein    | NADH dehydrogenase subunit 1                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad10=psbG                 | protein    | NADH dehydrogenase subunit 10                                          | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad11=nad-lsu              | protein    | NADH dehydrogenase subunit 11                                          | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad2                       | protein    | NADH dehydrogenase subunit 2                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad3                       | protein    | NADH dehydrogenase subunit 3                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad4                       | protein    | NADH dehydrogenase subunit 4                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad4L=ymf58                | protein    | NADH dehydrogenase subunit 4L                                          | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad5                       | protein    | NADH dehydrogenase subunit 5                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad6=ymf62                 | protein    | NADH dehydrogenase subunit 6                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad7                       | protein    | NADH dehydrogenase subunit 7                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad8=frxB                  | protein    | NADH dehydrogenase subunit 8                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+nad9=nad31kd               | protein    | NADH dehydrogenase subunit 9                                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+rdrp                       | protein    | viral RNA-dependent RNA polymerase                                     | reverse transcription                              | -                         | -         
+rnl=lrn=LSU                | rRNA       | large subunit ribosomal RNA                                            | translation                                        | ribosome                  | -         
+rnpB                       | RNA        | ribonuclease P RNA                                                     | RNA processing                                     | ribonuclease P            | -         
+rns=srn=SSU                | rRNA       | small subunit ribosomal RNA                                            | translation                                        | ribosome                  | -         
+rpl1                       | protein    | ribosomal protein L1                                                   | translation                                        | ribosome                  | -         
+rpl10                      | protein    | ribosomal protein L10                                                  | translation                                        | ribosome                  | -         
+rpl11                      | protein    | ribosomal protein L11                                                  | translation                                        | ribosome                  | -         
+rpl12                      | protein    | ribosomal protein L12                                                  | translation                                        | ribosome                  | -         
+rpl13                      | protein    | ribosomal protein L13                                                  | translation                                        | ribosome                  | -         
+rpl14                      | protein    | ribosomal protein L14                                                  | translation                                        | ribosome                  | -         
+rpl15                      | protein    | ribosomal protein L15                                                  | translation                                        | ribosome                  | -         
+rpl16                      | protein    | ribosomal protein L16                                                  | translation                                        | ribosome                  | -         
+rpl17                      | protein    | ribosomal protein L17                                                  | translation                                        | ribosome                  | -         
+rpl18                      | protein    | ribosomal protein L18                                                  | translation                                        | ribosome                  | -         
+rpl19                      | protein    | ribosomal protein L19                                                  | translation                                        | ribosome                  | -         
+rpl2                       | protein    | ribosomal protein L2                                                   | translation                                        | ribosome                  | -         
+rpl20                      | protein    | ribosomal protein L20                                                  | translation                                        | ribosome                  | -         
+rpl21                      | protein    | ribosomal protein L21                                                  | translation                                        | ribosome                  | -         
+rpl22                      | protein    | ribosomal protein L22                                                  | translation                                        | ribosome                  | -         
+rpl24                      | protein    | ribosomal protein L24                                                  | translation                                        | ribosome                  | -         
+rpl27                      | protein    | ribosomal protein L27                                                  | translation                                        | ribosome                  | -         
+rpl29                      | protein    | ribosomal protein L29                                                  | translation                                        | ribosome                  | -         
+rpl3                       | protein    | ribosomal protein L3                                                   | translation                                        | ribosome                  | -         
+rpl30                      | protein    | ribosomal protein L30                                                  | translation                                        | ribosome                  | -         
+rpl31                      | protein    | ribosomal protein L31                                                  | translation                                        | ribosome                  | -         
+rpl32                      | protein    | ribosomal protein L32                                                  | translation                                        | ribosome                  | -         
+rpl33                      | protein    | ribosomal protein L33                                                  | translation                                        | ribosome                  | -         
+rpl34                      | protein    | ribosomal protein L34                                                  | translation                                        | ribosome                  | -         
+rpl35                      | protein    | ribosomal protein L35                                                  | translation                                        | ribosome                  | -         
+rpl36                      | protein    | ribosomal protein L36                                                  | translation                                        | ribosome                  | -         
+rpl4                       | protein    | ribosomal protein L4                                                   | translation                                        | ribosome                  | -         
+rpl5                       | protein    | ribosomal protein L5                                                   | translation                                        | ribosome                  | -         
+rpl6=ymf60                 | protein    | ribosomal protein L6                                                   | translation                                        | ribosome                  | -         
+rpl7                       | protein    | ribosomal protein L7                                                   | translation                                        | ribosome                  | -         
+rpl9                       | protein    | ribosomal protein L9                                                   | translation                                        | ribosome                  | -         
+rpo                        | protein    | RNA polymerase (T3/T7 type)                                            | transcription                                      | RNA polymerase            | 2.7.7.6   
+rpoA                       | protein    | RNA polymerase subunit alpha                                           | transcription                                      | RNA polymerase            | 2.7.7.6   
+rpoB                       | protein    | RNA polymerase subunit beta                                            | transcription                                      | RNA polymerase            | 2.7.7.6   
+rpoC                       | protein    | RNA polymerase subunit beta'                                           | -                                                  | -                         | -         
+rpoD                       | protein    | sigma-like factor                                                      | transcription                                      | RNA polymerase            | 2.7.7.6   
+rps1                       | protein    | ribosomal protein S1                                                   | translation                                        | ribosome                  | -         
+rps10                      | protein    | ribosomal protein S10                                                  | translation                                        | ribosome                  | -         
+rps11                      | protein    | ribosomal protein S11                                                  | translation                                        | ribosome                  | -         
+rps12                      | protein    | ribosomal protein S12                                                  | translation                                        | ribosome                  | -         
+rps13                      | protein    | ribosomal protein S13                                                  | translation                                        | ribosome                  | -         
+rps14                      | protein    | ribosomal protein S14                                                  | translation                                        | ribosome                  | -         
+rps15                      | protein    | ribosomal protein S15                                                  | translation                                        | ribosome                  | -         
+rps16                      | protein    | ribosomal protein S16                                                  | translation                                        | ribosome                  | -         
+rps17                      | protein    | ribosomal protein S17                                                  | translation                                        | ribosome                  | -         
+rps18                      | protein    | ribosomal protein S18                                                  | translation                                        | ribosome                  | -         
+rps19                      | protein    | ribosomal protein S19                                                  | translation                                        | ribosome                  | -         
+rps2                       | protein    | ribosomal protein S2                                                   | translation                                        | ribosome                  | -         
+rps20                      | protein    | ribosomal protein S20                                                  | translation                                        | ribosome                  | -         
+rps3=var1                  | protein    | ribosomal protein S3                                                   | translation                                        | ribosome                  | -         
+rps4                       | protein    | ribosomal protein S4                                                   | translation                                        | ribosome                  | -         
+rps6                       | protein    | ribosomal protein S6                                                   | translation                                        | ribosome                  | -         
+rps7                       | protein    | ribosomal protein S7                                                   | translation                                        | ribosome                  | -         
+rps8                       | protein    | ribosomal protein S8                                                   | translation                                        | ribosome                  | -         
+rps9                       | protein    | ribosomal protein S9                                                   | translation                                        | ribosome                  | -         
+rrn5=5S=rrf                | rRNA       | 5S rRNA                                                                | translation                                        | ribosome                  | -         
+rrnX                       | protein    | unknown ribosomal protein                                              | -                                                  | -                         | -         
+rtl                        | protein    | reverse transcriptase                                                  | reverse transcription                              | -                         | 2.7.7.49  
+sdh1                       | protein    | succinate dehydrogenase subunit 1                                      | electron transport                                 | respiratory complex II    | 1.3.5.1   
+sdh2=sdhB                  | protein    | succinate dehydrogenase subunit 2                                      | electron transport                                 | respiratory complex II    | 1.3.5.1   
+sdh3=sdhC                  | protein    | succinate dehydrogenase subunit 3                                      | electron transport                                 | respiratory complex II    | 1.3.5.1   
+sdh4=sdhD                  | protein    | succinate dehydrogenase subunit 4                                      | electron transport                                 | respiratory complex II    | 1.3.5.1   
+secY                       | protein    | SecY-type transporter protein                                          | transmembrane transport                            | -                         | -         
+ssrA                       | RNA/cds    | tmRNA                                                                  | protein degradation                                | -                         | -         
+tatA=mttA                  | protein    | Sec-independent protein translocase component tatA/E                   | protein transporter activity                       | -                         | -         
+tatC=mttB=ymf16            | protein    | Sec-independent protein translocase component TatC                     | protein translocation                              | -                         | -         
+trnA                       | tRNA       | transfer RNA Alanine                                                   | translation                                        | -                         | -         
+trnA(cgc)=tRNA(ala,cgc)    | tRNA       | transfer RNA Alanine                                                   | translation                                        | -                         | -         
+trnA(ggc)=tRNA(ala,ggc)    | tRNA       | transfer RNA Alanine                                                   | translation                                        | -                         | -         
+trnA(ugc)=tRNA(ala,tgc)    | tRNA       | transfer RNA Alanine                                                   | translation                                        | -                         | -         
+trnC                       | tRNA       | transfer RNA Cysteine                                                  | translation                                        | -                         | -         
+trnC(gca)=tRNA(cys,gca)    | tRNA       | transfer RNA Cysteine                                                  | translation                                        | -                         | -         
+trnD                       | tRNA       | transfer RNA Aspartic Acid                                             | translation                                        | -                         | -         
+trnD(guc)tRNA(asp,gtc)     | tRNA       | transfer RNA Aspartic Acid                                             | translation                                        | -                         | -         
+trnE                       | tRNA       | transfer RNA Glutamic Acid                                             | translation                                        | -                         | -         
+trnE(uuc)=tRNA(glu,ttc)    | tRNA       | transfer RNA Glutamic Acid                                             | translation                                        | -                         | -         
+trnF                       | tRNA       | transfer RNA Phenylalanine                                             | translation                                        | -                         | -         
+trnF(aaa)=tRNA(phe,aaa)    | tRNA       | transfer RNA Phenylalanine                                             | translation                                        | -                         | -         
+trnF(gaa)=tRNA(phe,gaa)    | tRNA       | transfer RNA Phenylalanine                                             | translation                                        | -                         | -         
+trnG                       | tRNA       | transfer RNA Glycine                                                   | translation                                        | -                         | -         
+trnG(acc)=tRNA(gly,acc)    | tRNA       | transfer RNA Glycine                                                   | translation                                        | -                         | -         
+trnG(ccc)=tRNA(gly,ccc)    | tRNA       | transfer RNA Glycine                                                   | translation                                        | -                         | -         
+trnG(gcc)=tRNA(gly,gcc)    | tRNA       | transfer RNA Glycine                                                   | translation                                        | -                         | -         
+trnG(ucc)=tRNA(gly,tcc)    | tRNA       | transfer RNA Glycine                                                   | translation                                        | -                         | -         
+trnG(ucu)=tRNA(gly,tct)    | tRNA       | transfer RNA Glycine                                                   | translation                                        | -                         | -         
+trnH                       | tRNA       | transfer RNA Histidine                                                 | translation                                        | -                         | -         
+trnH(aug)=tRNA(his,atg)    | tRNA       | transfer RNA Histidine                                                 | translation                                        | -                         | -         
+trnH(gug)=tRNA(his,gtg)    | tRNA       | transfer RNA Histidine                                                 | translation                                        | -                         | -         
+trnI                       | tRNA       | transfer RNA Isoleucine                                                | translation                                        | -                         | -         
+trnI(aau)=tRNA(ile,aat)    | tRNA       | transfer RNA Isoleucine                                                | translation                                        | -                         | -         
+trnI(cau)=tRNA(ile,cat)    | tRNA       | transfer RNA Isoleucine                                                | translation                                        | -                         | -         
+trnI(gau)=tRNA(ile,gat)    | tRNA       | transfer RNA Isoleucine                                                | translation                                        | -                         | -         
+trnI(uau)=tRNA(ile,tat)    | tRNA       | transfer RNA Isoleucine                                                | translation                                        | -                         | -         
+trnK                       | tRNA       | transfer RNA Lysine                                                    | translation                                        | -                         | -         
+trnK(cuu)=tRNA(lys,ctt)    | tRNA       | transfer RNA Lysine                                                    | translation                                        | -                         | -         
+trnK(uuu)=tRNA(lys,ttt)    | tRNA       | transfer RNA Lysine                                                    | translation                                        | -                         | -         
+trnL                       | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(aag)=tRNA(leu,aag)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(caa)=tRNA(leu,caa)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(cag)=tRNA(leu,cag)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(cua)=tRNA(leu,ctg)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(cun)=tRNA(leu,ctn)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(gag)=tRNA(leu,gag)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(Nag)=tRNA(leu,Nag)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(uaa)=tRNA(leu,taa)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(uag)=tRNA(leu,tag)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(uur)=tRNA(leu,ttr)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnL(Wag)=tRNA(leu,Wag)    | tRNA       | transfer RNA Leucine                                                   | translation                                        | -                         | -         
+trnM                       | tRNA       | transfer RNA Methionine                                                | translation                                        | -                         | -         
+trnM(cau)=tRNA(met,cat)    | tRNA       | transfer RNA Methionine                                                | translation                                        | -                         | -         
+trnM(cau)e=trnMe(cau)      | tRNA       | transfer RNA Methionine                                                | translation                                        | -                         | -         
+trnM(cau)f=trnMf(cau)      | tRNA       | transfer RNA Methionine                                                | translation                                        | -                         | -         
+trnM(uau)=tRNA(met,tat)    | tRNA       | transfer RNA Methionine                                                | translation                                        | -                         | -         
+trnN                       | tRNA       | transfer RNA Asparagine                                                | translation                                        | -                         | -         
+trnN(auu)=tRNA(asn,att)    | tRNA       | transfer RNA Asparagine                                                | translation                                        | -                         | -         
+trnN(guu)=tRNA(asn,gtt)    | tRNA       | transfer RNA Asparagine                                                | translation                                        | -                         | -         
+trnP                       | tRNA       | transfer RNA Proline                                                   | translation                                        | -                         | -         
+trnP(agg)=tRNA(pro,agg)    | tRNA       | transfer RNA Proline                                                   | translation                                        | -                         | -         
+trnP(cgg)=tRNA(pro,cgg)    | tRNA       | transfer RNA Proline                                                   | translation                                        | -                         | -         
+trnP(ggg)=tRNA(pro,ggg)    | tRNA       | transfer RNA Proline                                                   | translation                                        | -                         | -         
+trnP(ugg)=tRNA(pro,tgg)    | tRNA       | transfer RNA Proline                                                   | translation                                        | -                         | -         
+trnQ                       | tRNA       | transfer RNA Glutamine                                                 | translation                                        | -                         | -         
+trnQ(cug)=tRNA(gln,ctg)    | tRNA       | transfer RNA Glutamine                                                 | translation                                        | -                         | -         
+trnQ(uug)=tRNA(gln,ttg)    | tRNA       | transfer RNA Glutamine                                                 | translation                                        | -                         | -         
+trnR                       | tRNA       | transfer RNA Arginine                                                  | translation                                        | -                         | -         
+trnR(acg)=tRNA(arg,acg)    | tRNA       | transfer RNA Arginine                                                  | translation                                        | -                         | -         
+trnR(ccg)=tRNA(arg,ccg)    | tRNA       | transfer RNA Arginine                                                  | translation                                        | -                         | -         
+trnR(ccu)=tRNA(arg,cct)    | tRNA       | transfer RNA Arginine                                                  | translation                                        | -                         | -         
+trnR(gcg)=tRNA(arg,gcg)    | tRNA       | transfer RNA Arginine                                                  | translation                                        | -                         | -         
+trnR(ucg)=tRNA(arg,tcg)    | tRNA       | transfer RNA Arginine                                                  | translation                                        | -                         | -         
+trnR(ucu)=tRNA(arg,tct)    | tRNA       | transfer RNA Arginine                                                  | translation                                        | -                         | -         
+trnS                       | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnS(acu)=tRNA(ser,act)    | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnS(agy)=tRNA(ser,agy)    | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnS(cga)=tRNA(ser,cga)    | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnS(gcu)=tRNA(ser,gct)    | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnS(gga)=tRNA(ser,gga)    | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnS(ucn)=tRNA(ser,tcn)    | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnS(ucu)=tRNA(ser,tct)    | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnS(uga)=tRNA(ser,act)    | tRNA       | transfer RNA Serine                                                    | translation                                        | -                         | -         
+trnT                       | tRNA       | transfer RNA Threonine                                                 | translation                                        | -                         | -         
+trnT(agu)=tRNA(thr,agt)    | tRNA       | transfer RNA Threonine                                                 | translation                                        | -                         | -         
+trnT(cag)=tRNA(thr,cag)    | tRNA       | transfer RNA Threonine                                                 | translation                                        | -                         | -         
+trnT(ggu)=tRNA(thr,ggt)    | tRNA       | transfer RNA Threonine                                                 | translation                                        | -                         | -         
+trnT(uag)=tRNA(thr,tag)    | tRNA       | transfer RNA Threonine                                                 | translation                                        | -                         | -         
+trnT(ugc)=tRNA(thr,tgc)    | tRNA       | transfer RNA Threonine                                                 | translation                                        | -                         | -         
+trnT(ugu)=tRNA(thr,tgt)    | tRNA       | transfer RNA Threonine                                                 | translation                                        | -                         | -         
+trnU                       | tRNA       | transfer RNA selenocysteine                                            | translation                                        | -                         | -         
+trnV                       | tRNA       | transfer RNA Valine                                                    | translation                                        | -                         | -         
+trnV(aac)=tRNA(val,aac)    | tRNA       | transfer RNA Valine                                                    | translation                                        | -                         | -         
+trnV(cac)=tRNA(val,cac)    | tRNA       | transfer RNA Valine                                                    | translation                                        | -                         | -         
+trnV(gac)=tRNA(val,gac)    | tRNA       | transfer RNA Valine                                                    | translation                                        | -                         | -         
+trnV(uac)=tRNA(val,tac)    | tRNA       | transfer RNA Valine                                                    | translation                                        | -                         | -         
+trnW                       | tRNA       | transfer RNA Tryptophan                                                | translation                                        | -                         | -         
+trnW(cca)=tRNA(trp,cca)    | tRNA       | transfer RNA Tryptophan                                                | translation                                        | -                         | -         
+trnW(uca)=tRNA(trp,tca)    | tRNA       | transfer RNA Tryptophan                                                | translation                                        | -                         | -         
+trnX                       | tRNA       | transfer RNA (type/anticodon unknown)                                  | translation                                        | -                         | -         
+trnY                       | tRNA       | transfer RNA Tyrosine                                                  | translation                                        | -                         | -         
+trnY(aua)=tRNA(tyr,ata)    | tRNA       | transfer RNA Tyrosine                                                  | translation                                        | -                         | -         
+trnY(gua)=tRNA(tyr,gta)    | tRNA       | transfer RNA Tyrosine                                                  | translation                                        | -                         | -         
+tufA                       | protein    | translation elongation factor Tu                                       | translation                                        | -                         | -         
+y1                         | protein    | Y1                                                                     | -                                                  | -                         | -         
+y2                         | protein    | Y2                                                                     | -                                                  | -                         | -         
+y3                         | protein    | Y3                                                                     | -                                                  | -                         | -         
+y4                         | protein    | Y4                                                                     | -                                                  | -                         | -         
+y5                         | protein    | Y5                                                                     | -                                                  | -                         | -         
+y6                         | -          | Y6                                                                     | -                                                  | -                         | -         
+x12                        | -          | X12                                                                    | -                                                  | -                         | -         
+x18                        | -          | X18                                                                    | -                                                  | -                         | -         
+
+
+#
+#	Chloroplast encoded genes
+#
+#
+#                          |  Product   |
+# Gene names               |  Type      |  Product name                                                          |  General function                                  |  Enzyme complex           |  E.C. number
+#==========================|============|========================================================================|====================================================|===========================|=================
+aat                        | protein    | Aspartate aminotransferase isozyme 5                                   | -                                                  | -                         | -         
+accA                       | protein    | acetyl-CoA carboxylase, carboxyl transferase subunit alpha             | unknown                                            | -                         | 6.4.1.2   
+accB                       | protein    | acetyl-CoA carboxylase, biotin carboxyl carrier protein                | unknown                                            | -                         | 6.4.1.2   
+accD=ycf11                 | protein    | acetyl-CoA carboxylase, carboxyl transferase subunit beta              | unknown                                            | -                         | 6.4.1.2   
+acpP=acpA                  | protein    | acyl carrier protein                                                   | protein translocation                              | -                         | -         
+acsF=ycf59                 | protein    | Mg-protoporphyrin IX monomethyl ester oxidative cyclase                | unknown                                            | -                         | -         
+apcA                       | protein    | allophycocyanin alpha subunit                                          | photosynthesis                                     | -                         | -         
+apcB                       | protein    | allophycocyanin beta subunit                                           | photosynthesis                                     | -                         | -         
+apcD                       | protein    | allophycocyanin gamma subunit                                          | photosynthesis                                     | -                         | -         
+apcE                       | protein    | phycobilisome linker polypeptide                                       | photosynthesis                                     | -                         | -         
+apcF                       | protein    | allophycocyanin beta 18 subunit                                        | photosynthesis                                     | -                         | -         
+argB                       | protein    | acetylglutamate kinase                                                 | biosynthesis other than photosynthesis             | -                         | 2.7.2.8   
+aroC                       | protein    | Chorismate synthase                                                    | biosynthesis other than photosynthesis             | -                         | 4.2.3.5   
+atpA                       | protein    | ATP synthase CF1 subunit alpha                                         | biosynthesis other than photosynthesis             | ATP synthase              | 3.6.3.14  
+atpB                       | protein    | ATP synthase CF1 subunit beta                                          | biosynthesis other than photosynthesis             | ATP synthase              | 3.6.3.14  
+atpC                       | protein    | ATP synthase CF1 subunit gamma                                         | biosynthesis other than photosynthesis             | ATP synthase              | 3.6.3.14  
+atpD                       | protein    | ATP synthase CF1 subunit delta                                         | biosynthesis other than photosynthesis             | ATP synthase              | 3.6.3.14  
+atpE                       | protein    | ATP synthase CF1 subunit epsilon                                       | biosynthesis other than photosynthesis             | ATP synthase              | 3.6.3.14  
+atpF                       | protein    | ATP synthase CF0 subunit I                                             | biosynthesis other than photosynthesis             | ATP synthase              | 3.6.3.14  
+atpG                       | protein    | ATP synthase CF0 subunit II                                            | biosynthesis other than photosynthesis             | ATP synthase              | 3.6.3.14  
+atpH                       | protein    | ATP synthase CF0 subunit III                                           | biosynthesis other than photosynthesis             | ATP synthase              | 3.6.3.14  
+atpI                       | protein    | ATP synthase CF0 subunit IV                                            | transport of metabolites and ions                  | ATP synthase              | 3.6.3.14  
+bas1=ycf42                 | protein    | 2-Cys peroxiredoxin                                                    | antioxidation                                      | -                         | -         
+carA                       | protein    | carbamoyl phosphate synthase small subunit                             | biosynthesis other than photosynthesis             | -                         | 6.3.5.5   
+cbbC                       | protein    | protein of unknown function                                            | unknown                                            | -                         | -         
+cbbQ                       | protein    | protein of unknown function                                            | unknown                                            | -                         | -         
+cbbX=cfxQ                  | protein    | Rubisco expression protein                                             | unknown                                            | -                         | -         
+ccs1=ccsB=ycf44            | protein    | Cytochrome c biogenesis protein                                        | haem biosynthesis                                  | -                         | -         
+ccsA=ycf5                  | protein    | heme attachment to plastid cytochrome c                                | biosynthesis other than photosynthesis             | -                         | -         
+cemA=ycf10=hbp             | protein    | envelope membrane protein                                              | transport of metabolites and ions                  | -                         | -         
+chlB                       | protein    | protochlorophyllide reductase subunit B                                | photosynthesis                                     | -                         | 1.3.1.33  
+chlI                       | protein    | Mg chelatase subunit e                                                 | photosynthesis                                     | -                         | -         
+chlL=frxC=gidB             | protein    | protochlorophyllide reductase iron protein subunit                     | unknown                                            | -                         | 1.3.1.33  
+chlN=gidA                  | protein    | protochlorophyllide reductase subunit N                                | photosynthesis                                     | -                         | 1.3.1.33  
+clpC                       | protein    | Clp protease ATP binding subunit                                       | protein degradation                                | -                         | 3.4.21.92 
+clpP                       | protein    | Clp protease proteolytic subunit                                       | protein degradation                                | -                         | 3.4.21.92 
+cobA                       | protein    | uroporphyrin-III C-methyltransferase                                   | translocation                                      | -                         | 2.1.1.107 
+cpcA=pcyA                  | protein    | phycocyanin alpha subunit                                              | photosynthesis                                     | -                         | -         
+cpcB=pcyB                  | protein    | phycocyanin beta subunit                                               | photosynthesis                                     | -                         | -         
+cpcG=cpcC                  | protein    | phycobilisome rod-core linker polypeptide                              | photosynthesis                                     | -                         | -         
+cpeA=rpeA                  | protein    | phycoerythrin subunit a                                                | photosynthesis                                     | -                         | -         
+cpeB=rpeB                  | protein    | phycoerythrin subunit b                                                | photosynthesis                                     | -                         | -         
+crtE=ggps1                 | protein    | geranylgeranyl pyrophosphate synthase                                  | biosynthesis other than photosynthesis             | -                         | 2.5.1.29  
+cysA=mbpX                  | protein    | sulfate ABC transporter ATP-binding subunit                            | protein translocation                              | -                         | -         
+cysT=mbpY                  | protein    | sulfate ABC transporter permease subunit CysT                          | protein translocation                              | -                         | -         
+cysW                       | protein    | sulfate ABC transporter permease subunit CysW                          | protein translocation                              | -                         | -         
+desA                       | protein    | fatty-acid desaturase                                                  | protein degradation                                | -                         | 1.14.19.2 
+dfr                        | protein    | drug sensory protein A                                                 | -                                                  | -                         | -         
+DHFR-TS=DHFR               | protein    | Bifunctional dihydrofolate reductase-thymidylate synthase              | -                                                  | -                         | -         
+dnaB                       | protein    | replication helicase subunit                                           | replication                                        | -                         | -         
+dnaK=hsp70=ctp70           | protein    | Hsp70-type chaperone                                                   | protein folding and maturation                     | -                         | -         
+dnaX                       | protein    | DNA polymerase III                                                     | replication                                        | DNA polymerase            | -         
+dsbD                       | protein    | thiol:disulfide interchange protein                                    | electron transport                                 | -                         | 1.8.1.8   
+fabH                       | protein    | beta-ketoacyl-acyl carrier protein synthase III                        | biosynthesis other than photosynthesis             | -                         | 2.3.1.41  
+ffs                        | RNA        | chloroplast signal recognition particle RNA                            | -                                                  | -                         | -         
+ftrB                       | protein    | ferredoxin thioreductase subunit b                                     | photosynthesis                                     | -                         | -         
+ftsH=ycf25                 | protein    | cell division protein FTSH                                             | organelle division                                 | -                         | -         
+ftsI                       | protein    | peptidoglycan synthetase                                               | organelle division                                 | -                         | -         
+ftsW                       | protein    | cell division protein FTSW                                             | organelle division                                 | -                         | -         
+gapC                       | protein    | glyceraldehyde-3-phosphate dehydrogenase                               | -                                                  | -                         | -         
+glmS                       | protein    | glutamine-fructose-6-phosphate amidotransferase                        | biosynthesis other than photosynthesis             | -                         | 2.6.1.16  
+glnB                       | protein    | nitrogen regulatory protein PII                                        | transcription                                      | -                         | -         
+gltB=glsF                  | protein    | glutamate synthase                                                     | nitrogen assimilation                              | -                         | 1.4.7.1   
+groL=groEL=cpn60           | protein    | 60-kDa chaperonin                                                      | protein folding and maturation                     | -                         | -         
+groS=groES=cpn10           | protein    | 10 kDa chaperonin                                                      | protein                                            | -                         | -         
+hemA                       | protein    | glutamyl-tRNA reductase                                                | biosynthesis other than photosynthesis             | -                         | -         
+hisH                       | protein    | glutamine amidotransferase                                             | biosynthesis other than photosynthesis             | -                         | 6.3.5.2   
+hlip                       | protein    | High light inducible protein                                           | -                                                  | -                         | -         
+hup=hlp=hlpA=fcfC          | protein    | DNA-binding protein hu homolog                                         | translocation                                      | -                         | -         
+ilvB                       | protein    | acetohydroxyacid synthetase large subunit                              | biosynthesis other than photosynthesis             | -                         | 2.2.1.6   
+ilvH                       | protein    | acetohydroxyacid synthetase small subunit                              | biosynthesis other than photosynthesis             | -                         | 2.2.1.6   
+infA                       | protein    | translation initiation factor 1                                        | translation                                        | -                         | -         
+infB                       | protein    | translation initiation factor 2                                        | translation                                        | -                         | -         
+infC                       | protein    | translation initiation factor 3                                        | translation                                        | -                         | -         
+int                        | protein    | putative integrase/recombinase protein                                 | -                                                  | -                         | -         
+leuC                       | protein    | 3-isopropylmalate dehydratase large subunit                            | biosynthesis other than photosynthesis             | -                         | 4.2.1.33  
+leuD                       | protein    | 3-isopropylmalate dehydratase small subunit                            | biosynthesis other than photosynthesis             | -                         | 4.2.1.33  
+lipB                       | protein    | lipoate-protein ligase B                                               | biosynthesis other than photosynthesis             | -                         | -         
+lpxA                       | protein    | acyl-UDP-N-acetylglucosamine O-acyltransferase                         | biosynthesis other than photosynthesis             | -                         | 2.3.1.129 
+lpxC                       | protein    | UDP-3-O-acyl-N-acetylglucosamine deacetylase                           | biosynthesis other than photosynthesis             | -                         | -         
+lysR                       | protein    | lysR transcriptional regulator                                         | -                                                  | -                         | -         
+matK=ycf14                 | protein    | intron maturase                                                        | RNA-directed DNA polymerase activity; endodeoxyribonuclear activity | -                         | -         
+menA                       | protein    | 1,4-dihydroxy-2-naphthoate octaprenyltransferase                       | biosynthesis other than photosynthesis             | -                         | -         
+menB                       | protein    | naphthoate synthase                                                    | biosynthesis other than photosynthesis             | -                         | 4.1.3.36  
+menC                       | protein    | O-succinylbenzoate synthase                                            | biosynthesis other than photosynthesis             | -                         | -         
+menD                       | protein    | 2-succinyl-6-hydroxy-2,4-cyclohexadiene-1-carboxylate synthase         | unknown                                            | -                         | -         
+menE                       | protein    | O-succinylbenzoic acid-CoA ligase                                      | biosynthesis other than photosynthesis             | -                         | 6.2.1.26  
+menF                       | protein    | menaquinone-specific isochorismate synthase                            | biosynthesis other than photosynthesis             | -                         | 5.4.4.2   
+minD                       | protein    | septum site-determining protein                                        | organelle division                                 | -                         | -         
+minE                       | protein    | cell division topological specificity factor                           | organelle division                                 | -                         | -         
+moeB=hesA=thiF             | protein    | molybdopterin biosynthesis protein                                     | biosynthesis other than photosynthesis             | -                         | -         
+nadA                       | protein    | quinolinate synthetase                                                 | biosynthesis other than photosynthesis             | quinolinate synthetase complex | 4.2.3.4   
+nblA=ycf18                 | protein    | phycobilisome degradation protein                                      | protein degradation                                | -                         | -         
+ndhA=ndh1                  | protein    | NADH-plastoquinone oxidoreductase subunit 1                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhB=ndh2                  | protein    | NADH-plastoquinone oxidoreductase subunit 2                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhC=ndh3                  | protein    | NADH-plastoquinone oxidoreductase subunit 3                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhD=ndh4                  | protein    | NADH-plastoquinone oxidoreductase subunit 4                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhE=ndh4L                 | protein    | NADH-plastoquinone oxidoreductase subunit 4L                           | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhF=ndh5                  | protein    | NADH-plastoquinone oxidoreductase subunit 5                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhG=ndh6                  | protein    | NADH-plastoquinone oxidoreductase subunit 6                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhH                       | protein    | NADH-plastoquinone oxidoreductase subunit 7                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhI=frxB                  | protein    | NADH-plastoquinone oxidoreductase subunit I                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhJ                       | protein    | NADH-plastoquinone oxidoreductase subunit J                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ndhK=psbG                  | protein    | NADH-plastoquinone oxidoreductase subunit K                            | electron transport                                 | respiratory complex I     | 1.6.5.3   
+ntcA=ycf28                 | protein    | global nitrogen transcriptional regulator                              | transcription                                      | -                         | -         
+ompR=ycf27                 | protein    | probable transcriptional regulator ompR                                | transcription                                      | -                         | -         
+pbsA                       | protein    | heme oxygenase                                                         | photosynthesis                                     | -                         | 1.14.99.3 
+pdhA                       | protein    | pyruvate dehydrogenase E1 component, alpha subunit                     | biosynthesis other than photosynthesis             | -                         | 1.2.4.1   
+pdhB                       | protein    | pyruvate dehydrogenase E1 component, beta subunit                      | biosynthesis other than photosynthesis             | -                         | 1.2.4.1   
+petA                       | protein    | apocytochrome f                                                        | electron transport                                 | -                         | -         
+petB                       | protein    | cytochrome b6                                                          | electron transport                                 | -                         | -         
+petD                       | protein    | cytochrome b6/f complex subunit 4                                      | electron transport                                 | -                         | -         
+petF                       | protein    | ferredoxin                                                             | electron transport                                 | -                         | -         
+petG                       | protein    | cytochrome b6/f complex subunit 5                                      | electron transport                                 | -                         | -         
+petJ                       | protein    | cytochrome c553                                                        | electron transport                                 | -                         | -         
+petL=ycf7                  | protein    | cytochrome b6-f complex subunit 6                                      | electron transport                                 | -                         | -         
+petM=ycf31                 | protein    | cytochrome b6-f complex subunit 7                                      | electron transport                                 | -                         | -         
+petN=ycf6                  | protein    | cytochrome b6-f complex subunit 8                                      | electron transport                                 | -                         | -         
+pgmA                       | protein    | phosphoglycerate mutase                                                | biosynthesis other than photosynthesis             | -                         | 2.5.1.1   
+preA                       | protein    | prenyl transferase                                                     | biosynthesis other than photosynthesis             | -                         | 2.5.1.1   
+psaA=psaA1                 | protein    | photosystem I P700 apoprotein A1                                       | photosynthesis                                     | -                         | -         
+psaB=psaA2                 | protein    | photosystem I P700 apoprotein A2                                       | photosynthesis                                     | -                         | -         
+psaC=frxA                  | protein    | photosystem I subunit VII (iron-sulfur center)                         | photosynthesis                                     | -                         | -         
+psaD                       | protein    | photosystem I reaction center subunit II (ferredoxin-binding)          | photosynthesis                                     | -                         | -         
+psaE                       | protein    | photosystem I reaction center subunit IV                               | photosynthesis                                     | -                         | -         
+psaF                       | protein    | photosystem I reaction center subunit III (plastocyanin-binding)       | photosynthesis                                     | -                         | -         
+psaI                       | protein    | photosystem I reaction center subunit VIII                             | photosynthesis                                     | -                         | -         
+psaJ                       | protein    | photosystem I reaction center subunit IX                               | photosynthesis                                     | -                         | -         
+psaK                       | protein    | photosystem I reaction center subunit X                                | photosynthesis                                     | -                         | -         
+psaL                       | protein    | photosystem I reaction center subunit XI                               | photosynthesis                                     | -                         | -         
+psaM                       | protein    | photosystem I reaction center subunit M                                | photosynthesis                                     | -                         | -         
+psb28=psbW=ycf79           | protein    | photosystem II protein psb28                                           | photosynthesis                                     | -                         | -         
+psbA                       | protein    | photosystem II reaction center protein D1                              | photosynthesis                                     | -                         | -         
+psbB                       | protein    | photosystem II CP47 chlorophyll apoprotein                             | photosynthesis                                     | -                         | -         
+psbC                       | protein    | photosystem II CP43 chlorophyll apoprotein                             | photosynthesis                                     | -                         | -         
+psbD                       | protein    | photosystem II reaction center protein D2                              | photosynthesis                                     | -                         | -         
+psbE                       | protein    | photosystem II cytochrome b559 alpha subunit                           | photosynthesis                                     | -                         | -         
+psbF                       | protein    | photosystem II cytochrome b559 beta subunit                            | photosynthesis                                     | -                         | -         
+psbH                       | protein    | photosystem II 10 kDa phosphoprotein                                   | photosynthesis                                     | -                         | -         
+psbI                       | protein    | photosystem II protein I                                               | photosynthesis                                     | -                         | -         
+psbJ                       | protein    | photosystem II protein J                                               | photosynthesis                                     | -                         | -         
+psbK                       | protein    | photosystem II protein K                                               | photosynthesis                                     | -                         | -         
+psbL                       | protein    | photosystem II protein L                                               | photosynthesis                                     | -                         | -         
+psbM                       | protein    | photosystem II protein M                                               | photosynthesis                                     | -                         | -         
+psbN                       | protein    | photosystem II protein N                                               | photosynthesis                                     | -                         | -         
+psbT=ycf8                  | protein    | photosystem II protein T                                               | photosynthesis                                     | -                         | -         
+psbV                       | protein    | photosystem II cytochrome c550                                         | photosynthesis                                     | -                         | -         
+psbX                       | protein    | photosystem II protein X                                               | photosynthesis                                     | -                         | -         
+psbY=ycf32                 | protein    | photosystem II protein Y                                               | photosynthesis                                     | -                         | -         
+psbZ=ycf9                  | protein    | photosystem II protein Z                                               | photosynthesis                                     | -                         | -         
+rbcL=rbcA                  | protein    | Rubisco large subunit                                                  | carbon dioxide fixation                            | -                         | 4.1.1.39  
+rbcR=ycf30=trsE            | protein    | transcription regulator of rubisco operon                              | transcription                                      | -                         | -         
+rbcS                       | protein    | Rubisco small subunit                                                  | carbon dioxide fixation                            | -                         | 4.1.1.39  
+rne                        | protein    | ribonuclease E                                                         | RNA processing and degradation                     | -                         | -         
+rpl23                      | protein    | ribosomal protein L23                                                  | translation                                        | ribosome                  | -         
+rpl28                      | protein    | ribosomal protein L28                                                  | translation                                        | ribosome                  | -         
+rpoC1                      | protein    | RNA polymerase b'-subunit                                              | transcription                                      | RNA polymerase            | 2.7.7.6   
+rpoC2                      | protein    | RNA polymerase b''-subunit                                             | transcription                                      | RNA polymerase            | 2.7.7.6   
+rpoZ=ycf61                 | protein    | DNA-directed RNA polymerase omega chain                                | unknown                                            | -                         | -         
+rps5                       | protein    | ribosomal protein S5                                                   | translation                                        | ribosome                  | -         
+rrn4.5                     | rRNA       | 4.5S rRNA                                                              | translation                                        | ribosome                  | -         
+secA                       | protein    | preprotein-translocase subunit a                                       | translocation                                      | -                         | -         
+secG=ycf47                 | protein    | Preprotein translocase SecG subunit                                    | -                                                  | -                         | -         
+sprA                       | RNA        | small plastid RNA                                                      | -                                                  | -                         | -         
+sufB=ycf24                 | protein    | sufB protein                                                           | unknown                                            | -                         | -         
+sufC                       | protein    | Iron-sulfur cluster formation ABC transporter ATP-binding subunit      | -                                                  | -                         | -         
+syfB                       | protein    | phenylalanine-tRNA ligase beta subunit                                 | biosynthesis other than photosynthesis             | -                         | 6.1.1.20  
+syh                        | protein    | histidine-tRNA ligase                                                  | biosynthesis other than photosynthesis             | -                         | 6.1.1.21  
+thdF                       | protein    | thiophen and furan oxidation protein                                   | oxidation                                          | -                         | -         
+thiG                       | protein    | Thiamine biosynthesis protein G                                        | biosynthesis other than photosynthesis             | -                         | -         
+thiS                       | protein    | Thiamine biosynthesis protein                                          | -                                                  | -                         | -         
+tilS=ycf62                 | protein    | tRNAIle-lysidine synthetase                                            | RNA processing                                     | -                         | -         
+trnA(agc)                  | tRNA       | transfer RNA Alanine                                                   | translation                                        | -                         | -         
+trnE(cuc)                  | tRNA       | transfer RNA Glutamic Acid                                             | translation                                        | -                         | -         
+trnX(gNc)                  | tRNA       | transfer RNA (type/anticodon unknown)                                  | translation                                        | -                         | -         
+trpA                       | protein    | tryptophan synthase alpha subunit                                      | biosynthesis other than photosynthesis             | -                         | 4.2.1.20  
+trpG                       | protein    | anthranilate synthase component II                                     | biosynthesis other than photosynthesis             | -                         | 4.1.3.27  
+trxA                       | protein    | thioredoxin                                                            | oxidation                                          | -                         | -         
+tscA                       | RNA        | psaA transplicing trans-acting factor                                  | transcription                                      | -                         | -         
+tsf                        | protein    | translation elongation factor Ts                                       | translation                                        | -                         | -         
+tsg1                       | protein    | His-to-Asp sensor kinase                                               | -                                                  | -                         | -         
+upp                        | protein    | uracil phosphoribosyltransferase                                       | pyrimidine metabolism                              | -                         | 2.4.2.9   
+ycf16                      | protein    | ABC transporter subunit                                                | unknown                                            | -                         | -         
+ycf3                       | protein    | photosystem I assembly protein ycf3                                    | unknown                                            | -                         | -         
+ycf4                       | protein    | photosystem I assembly protein ycf4                                    | unknown                                            | -                         | -         
+ycf65                      | protein    | plastid-specific 30S ribosomal protein 3                               | unknown                                            | -                         | -         

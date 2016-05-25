@@ -28,82 +28,13 @@
 # license should be included in a file called COPYING. If not, write to the #
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.   #
 #############################################################################
-#
-#    $Id: mf2sqn,v 1.21 2013/10/15 01:05:30 nbeck Exp $
-#
-#    $Log: mf2sqn,v $
-#    Revision 1.21  2013/10/15 01:05:30  nbeck
-#    Added support for byp elem for gene with introns.
-#
-#    Revision 1.20  2013/01/26 14:18:41  nbeck
-#    Added X element for gene wo exons/introns.
-#
-#    Revision 1.19  2012/12/27 03:58:42  nbeck
-#    Fixed tRNA position.
-#
-#    Revision 1.18  2012/12/07 02:59:53  nbeck
-#    Multiple reference.
-#
-#    Revision 1.17  2011/03/18 21:43:09  nbeck
-#    Use new version of Masterfile.pir.
-#
-#    Revision 1.16  2011/02/17 23:15:10  nbeck
-#    Changed author addition, fixed transpliced, changed note gestion.
-#    Added misc_RNA and polyA_site.
-#
-#    Revision 1.15  2011/02/14 14:52:25  nbeck
-#    Added treatment of Var/Sig/Mot annotation.
-#
-#    Revision 1.14  2011/01/06 20:54:43  nbeck
-#    Added note for gene copy number.
-#
-#    Revision 1.13  2010/09/17 15:36:16  nbeck
-#    Fixed bug with reverse tRNA.
-#
-#    Revision 1.12  2010/06/18 20:28:43  nbeck
-#    Fixed bug with duplication of gene.
-#
-#    Revision 1.11  2010/06/10 19:37:24  nbeck
-#    Added field completedness.
-#
-#    Revision 1.10  2010/06/10 15:38:50  nbeck
-#    *** empty log message ***
-#
-#    Revision 1.9  2010/06/10 14:49:40  nbeck
-#    Fixed bug with protein id.
-#
-#    Revision 1.8  2009/12/16 16:22:46  nbeck
-#    Added generic author.
-#
-#    Revision 1.7  2009/12/15 22:17:51  nbeck
-#    Added option for Table output.
-#
-#    Revision 1.6  2009/12/14 18:57:08  nbeck
-#    Fixed bug with gene we have more than 9 exons.
-#
-#    Revision 1.5  2009/07/02 17:36:32  nbeck
-#    Added qualifiers verification.
-#
-#    Revision 1.4  2009/06/26 17:53:03  nbeck
-#    Added support for gene in two part (like rnl). Added support for citation.
-#
-#    Revision 1.3  2009/06/19 16:07:53  nbeck
-#    Added support for trans-splice gene.
-#
-#    Revision 1.2  2009/06/16 15:35:18  nbeck
-#    Added support for qualifiers, except for citation and trans-spliced.
-#
-#    Revision 1.1  2009/06/10 20:55:46  nbeck
-#    Initial check-in.
-#
-#
 
 ##########################
 # Initialization section #
 ##########################
 
 require 5.00;
-require "/share/supported/apps/ogmp/lib/perl/ogmp/qualifs.pl";
+require "qualifs.pl";
 use strict;
 use vars qw( $VERSION $RCS_VERSION );
 use PirObject;                                        # Pir module treatment 
@@ -115,7 +46,7 @@ use Cwd;
 
 BEGIN {
 # Load PirObject
-PirObject->LoadDataModel("Masterfile");               # Masterfile object
+  PirObject->LoadDataModel("Masterfile");               # Masterfile object
 } # End Begin
 
 # Default umask
@@ -136,17 +67,56 @@ my $USER = getpwuid($<) or getlogin or die "Can't find USER from environment!\n"
 $|=1;
 my $DEBUG=0;
 my $TMPDIR="/tmp/$BASENAME.$$";
-my $GENE_NAME_FILE="/share/supported/apps/ogmp/lib/gene_names.lst";
-my $QUALIF_FILE="/share/supported/apps/ogmp/lib/ogmp_qualifiers.lst";
-my $SUB_INFO_MODEL="/share/supported/apps/mf2sqn/SubInfo";
-my $SUBMITTERDIR="/share/supported/apps/mf2sqn/";
-my $TBL2ASN='/share/supported/bin/tbl2asn';
 my $GENE_NAME={};
 my $OGMP_QUALS_CLASSES= {};
 my $OGMP_QUALS_TEXTS={};
 my $OGMP_QUALS_USAGE={};
 my $OGMP_QUALS_GENENAME={};
 my $OGMP_QUALS_TO_NOTE={};
+
+
+##############################
+# Verification for required: #
+#   File and software        #
+##############################  
+   
+# Files
+my $HOME          = $ENV{"HOME"};
+my @LIB_PATH      = (($HOME || "."));
+push(@LIB_PATH,split(/:/,$ENV{"MF2SQN_LIB"})) if $ENV{"MF2SQN_LIB"};
+
+my $GENE_NAME_FILE    = "";
+my $QUALIF_FILE       = "";
+my $SUB_INFO_MODEL    = "";
+my $SUBMITTERDIR      = "";
+foreach my $dir (@LIB_PATH) {
+     next if !( -e "$dir/gene_names.lst" || -e "$dir/ogmp_qualifiers.lst" || 
+                -e "$dir/mf2sqn_SubInfo" || -e "$dir/Submitters");
+     $GENE_NAME_FILE = "$dir/gene_names.lst"      if !$GENE_NAME_FILE && (-e "$dir/gene_names.lst");
+     $QUALIF_FILE    = "$dir/ogmp_qualifiers.lst" if !$QUALIF_FILE    && (-e "$dir/ogmp_qualifiers.lst");
+     $SUB_INFO_MODEL = "$dir/mf2sqn_SubInfo"      if !$SUB_INFO_MODEL && (-e "$dir/mf2sqn_SubInfo");
+     $SUBMITTERDIR   = "$dir/mf2sqn_Submitters"   if !$SUBMITTERDIR   && (-e "$dir/mf2sqn_Submitters");
+     last if $GENE_NAME_FILE && $QUALIF_FILE && $SUB_INFO_MODEL && $SUBMITTERDIR;
+}
+ 
+die "Doesn't find the 'gene name list' file 'gene_names.lst'. Check your installation for this one.\n"
+    if !$GENE_NAME_FILE;
+
+die "Doesn't find the 'ogmp qualifiers' file 'ogmp_qualifiers.lst'. Check your installation for this one.\n"
+     if !$QUALIF_FILE;
+
+die "Doesn't find the 'mf2sqn subinfo' file 'mf2sqn_SubInfo'. Check your installation for this one.\n"
+     if !$SUB_INFO_MODEL;
+
+die "Doesn't find the 'mf2sqn submitters' directory 'mf2sqn_Submitters'. Check your installation for this one.\n"
+    if !$SUBMITTERDIR;
+
+# Software
+my $PATH = $ENV{"PATH"} || "";
+my @PATH = split(/:/, $PATH);
+my $TBL2ASN=&GetPath("tbl2asn");
+
+
 
 # Basic command-line args
 my $MASTERFILE="";          # The name of a file containing a genome in MF format
@@ -1597,3 +1567,23 @@ sub DefineOutputName {
     
     return($sqnOutput,$gbOutput,$tbOutput);
 }
+
+sub GetPath {
+    my $name_prog = shift;
+    
+    foreach my $dir (@PATH) {
+        if (-f "$dir/$name_prog") {
+            if (-r _ && -x _) {
+                return "$dir/$name_prog";
+            }
+            else {
+                die "   -> ERROR: $name_prog is not readable and executable! Please run:\n",
+                    "             chmod 755 \"$dir/ $name_prog\"\n";
+            }
+        last;
+        }
+    }
+    die "-> ERROR: Could not find '$name_prog' in your search path. Please install\n",
+        "   $name_prog from the source (see INSTALL.txt).\n";
+}
+

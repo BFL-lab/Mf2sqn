@@ -1,0 +1,150 @@
+
+#
+# This file is used by mf2sqn to complete some information 
+# in asn file, like : organism, genetic code ... 
+#
+#In order to change autor information or add autor see in directory /share/supported/apps/mf2sqn/
+#
+#
+# The available fields is : 
+#
+#--------------------------------------------------------------------------------
+# 'Genome information'
+#    'GENOME' => 'M'                                                               (default)
+#    Available values : O => apicoplast,
+#                       C => chloroplast,
+#                       H => chromoplast,
+#                       Y => cyanelle,
+#                       E => extrachromosomal,
+#                       G => genomic,
+#                       K => kinetoplast,
+#                       L => leucoplast,
+#                       A => macronuclear,
+#                       M => mitochondrion,
+#                       N => nucleomorph,
+#                       D => plasmid,
+#                       P => plastid,
+#                       R => proplastid,
+#                       W => proviral,
+#                       U => unknown
+#
+#--------------------------------------------------------------------------------
+# 'Information about the organism'
+#     'SCIENTIFIC' => 'Genus species'                                               (default)
+#     'STRAIN'     => ''                                                            (Optional)
+#
+#--------------------------------------------------------------------------------
+# 'NucProt comment for ASN.1 file'
+#     'COMMENT' => 'Complete genome'                                                (default)
+#
+#--------------------------------------------------------------------------------
+# 'Genome's genetic codes'
+#     'NUCLEAR_CODE' => '1'                                                         (default)
+#     'MITO_CODE'    => '1'                                                         (default)
+#
+#     Available values :
+#              1  =>  Standard
+#              2  =>  Vertebrate Mitochondrial                  AGA=Ter(*),AGG=Stop(*),AUA=Met(M),UGA=Trp(W)
+#              3  =>  Yeast Mitochondrial                       ATA=Met(M),CTN=Thr(T),TGA=Trp(W)
+#              4  =>  Mold Mitochondrial                        TGA=Trp(W)
+#              5  =>  Invertebrate Mitochondrial                AGA=Ser(S),AGG=Ser(S),ATA=Met(M),TGA=Trp(W)
+#              6  =>  Ciliate Dasycladacean Hexamita Nuclear    TAA=Gln(Q),TAG=Gln(Q)
+#              9  =>  Echinoderm Flatworm Mitochondrial         AAA=Asn(N),AGA=Ser(S),AGG=Ser(S),TGA=Trp(W)
+#              10 =>  Euplotid Nuclear                          TGA=Cys(C)
+#              11 =>  Bacterial and Plant Plastid
+#              12 =>  Alternative Yeast Nuclear                 CTG=Ser(S)
+#              13 =>  Ascidian Mitochondrial                    AGA=Gly(G),AGG=Gly(G),ATA=Met(M),TGA=Trp(W)
+#              14 =>  Alternative Flatworm Mitochondrial        AAA=Asn(N),AGA=Ser(S),AGG=Ser(S),TAA=Tyr(Y),TGA=Trp(W)
+#              15 =>  Blepharisma Macronuclear                  TAG=Gln(Q)
+#              16 =>  Chlorophycean Mitochondrial               TAG=Leu(L)
+#              21 =>  Trematode Mitochondrial                   TGA=Trp(W),ATA=Met(M),AGA=Ser(S),AGG=Ser(S)
+#              22 =>  Scenedesmus Obliquus Mitochondrial        TCA=Stop(*),TAG=Leu(L)
+#              23 =>  Thraustochytrium Mitochondrial            TTA=Stop(*)
+#
+#--------------------------------------------------------------------------------
+# 'Sequence information'
+#     'MOLCLASS'     => 'D'                                                       (default)
+#     Available values : D => DNA
+#                        R => RNA
+#                        N => NUCLEOTIDE
+#                        P => PROTEIN
+#                        O => OTHER
+#     'MOLTYPE'      => 'G'                                                       (default)
+#     Available values : G => GENOMIC
+#                        E => PRE MRNA
+#                        M => MRNA
+#                        R => RRNA
+#                        T => TRNA
+#                        S => SNRNA
+#                        C => SCRNA
+#                        P => PEPTIDE
+#                        O => OTHER GENETIC
+#                        X => GENOMIC MRNA
+#     'TOPOLOGY'     => 'C'                                                       (default)
+#     Available values : L => LINEAR
+#                        C => CIRCULAR
+#                        T => TANDEM
+#                        O => OTHER
+#     'COMPLETEDNESS'     => 'C'                                                  (default)
+#     Available values : C  => COMPLETE
+#                        P  => PARTIAL
+#                        NL => NO LEFT
+#                        NR => NO RIGHT
+#                        NE => NO ENDS
+#                        HL => HAS LEFT
+#                        HR => HAS RIGHT
+#                        O  => OTHER
+#
+#--------------------------------------------------------------------------------
+# 'Definition/Description for the whole sequence'
+#     'TITLE' => 'Dictyostelium discoideum mitochondrial DNA, complete sequence.'
+#
+#--------------------------------------------------------------------------------
+# 'Citation'
+#
+# User can add a quote for the complete genome, in this case use CITATION
+# in SubInfo file. See example :
+#     'CITATION' => 'pub: 10821186'
+#
+# For a part of genome, 2 solution :
+#   - Put an annotation directly in Masterlfile, like that :
+#           ;     G-citation_3 ==> start /citation=10821186
+#                 ....
+#           ;     G-citation_3 ==> end
+#   - Put directly the qualifiers with the annottation in Masterfile, like this :
+#           ;     G-trnC(gca) ==> start /citation=10821186
+#                 ....
+#           ;     G-trnC(gca) ==> end
+#
+# Always put the pubmed Id in order to define which publication you want to cite.
+#
+
+%SUBINFO = ( 
+'Genome information' => {
+     'GENOME'       => 'M'
+     }
+'Information about the organism' => {
+     'SCIENTIFIC'   => 'Genus species'
+     'STRAIN'       => ''
+     }
+'NucProt comment for ASN.1 file' => {
+     'COMMENT'      => 'Complete genome'
+     }
+'Genome's genetic codes' => {
+     'NUC_CODE'         => '1'
+     'MIT_CODE'         => '1'
+     }
+'Sequence information' => {
+     'MOLCLASS'      => 'D'
+     'MOLTYPE'       => 'G'
+     'TOPOLOGY'      => 'C'
+     'COMPLETEDNESS' => 'C'
+     }
+'Definition/Description for the whole sequence' => {
+     'TITLE' => 'Dictyostelium discoideum mitochondrial DNA, complete sequence.'
+}
+'Citation' => {
+     'CITATION' => '10821186'
+}
+
+);

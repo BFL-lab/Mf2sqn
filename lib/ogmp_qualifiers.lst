@@ -1,0 +1,105 @@
+#
+# Equivalence table between OGMP masterfile qualifiers and their textual
+# description.
+#
+# Last modified: 19Jul2006 gb; explanations added.
+# The format is as follow:
+#
+# qualifier class[|class[|class...]]    textual description
+#
+# The first column contains a qualifier. The second column contains
+# one or many class names, separated by "|" (without any space). If
+# the qualifier belong to the specific class "note", then after the class
+# names should follow a textual description in which blank spaces
+# are significant. If the two characters "%s" are found in the description,
+# they are replaced by the value assigned to the qualifier; for example,
+# if the masterfile contains "/coffees=4" and the textual description for
+# "coffees" is "The author drank %s coffees that day", then a program like
+# mf2sd would put into the note field "The author drank 4 coffees that day".
+#
+# Blank lines are ignored.
+#
+
+#Qualifier        Class(es)       Description                                                                                       Usage       Gene_name
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------
+A+T_rich        | note          | A+T-rich                                                                                        | none      | none        
+GIY-YIG         | note          | GIY-YIG orf                                                                                     | CDS       | ORF
+LAGLIDADG       | note          | LAGLIDAGDG orf                                                                                  | CDS       | ORF
+OMEGA           | note          | OMEGA orf                                                                                       | CDS       | ORF
+RNA-3'          | note          | RNA 3'-end                                                                                      | none      | none
+RNA-5'          | note          | RNA 5'-end                                                                                      | none      | none
+RNAproc         | note          | RNA processing site                                                                             | none      | none
+codon_altern    | note          | Alternate codon(s) is/are %s                                                                    | none      | none
+elongator       | note          | Elongator                                                                                       | gene      | trnM
+group           | note          | Group %s                                                                                        | intron    | none
+inframe         | note          | ORF in frame with upstream exon                                                                 | CDS       | intronic ORF
+initiator       | note          | Initiator                                                                                       | gene      | trnM
+intronic        | note          | Included in intron                                                                              | CDS       | all
+non-silent      | note          | Non-silent mutation                                                                             | none      | none
+note            | note          | %s                                                                                              | all       | all
+organization    | note          | Organization is %s                                                                              | none      | none
+polymorph       | note          | Polymorphism                                                                                    | none      | none
+rev_trans       | note          | Related to reverse transcriptases                                                               | none      | none
+silent          | note          | Silent mutation                                                                                 | none      | none
+tandem          | note          | Tandem arrangement                                                                              | none      | none
+translat_altern | note          | Alternate amino acids are %s                                                                    | none      | none
+ymf             | note          | Open reading frame ymf%s (CPGN)                                                                 | none      | none
+putative        | note          | Putative                                                                                        | none      | none
+ori             | note          | Replication origin                                                                              | none      | none
+tRNA-editing    | note          | Post-transcriptional RNA editing at 5'end presumably restores base pairing in the acceptor stem | CDS       | all
+#
+# Parsed qualifiers. They are processed explicitely in
+# special ways by mf2sd. Below is listed how they occur in the gbk flat file.
+#
+hompos          | parsed        | Insertion site after residue corresponding to position %d in the homologous %s sequence         | intron    | none
+deletion        | parsed        |                                                                                                 | none      | none
+stem_loop       | parsed        |                                                                                                 | none      | none
+first_aa        | parsed        |                                                                                                 | CDS       | all
+join            | parsed        |                                                                                                 | none      | none
+pseudo          | parsed        |                                                                                                 | gene      | all
+synonym         | parsed        |                                                                                                 | gene      | all
+citation        | parsed        |                                                                                                 | all       | all
+substitution    | parsed        |                                                                                                 | none      | none
+rpt_unit        | parsed        |                                                                                                 | none      | none
+repeat_element  | parsed        |                                                                                                 | none      | none
+repeat_region   | parsed        |                                                                                                 | none      | none
+telomere        | parsed|note   | Telomeric repeat array                                                                          | none      | none
+translat_except | parsed        |                                                                                                 | none      | none
+evidence        | parsed        |                                                                                                 | none      | none
+
+# How mf qualifiers occur in flatfile:
+# /first_aa ==> /transl_except=(pos:x..y,aa:<AAA>)
+
+# /partial is put on the START line when the feature is
+# incomplete either at its start or at its end. You should
+# specify which location is incomplete with /nostart or /nostop
+partial         | parsed        |                                                                                                 | all       | all
+
+# /nostart is put on the START line when the start is incomplete;
+# you should also put /partial on the START line.
+nostart        | parsed        |                                                                                                  | all       | all
+
+# /nostop is put on the END line when the end is incomplete;
+# you should also put /partial on the START line.
+nostop         | parsed        |                                                                                                  | all       | all
+
+# The following qualifier is added in gbk when two !'s occur in the
+# location of a tRNA: /anticodon=(pos:x..y,aa:AAA)
+
+# The following qualifier is added in /note when the gene name
+# ends with an copy number extension (such as G-cob_2)
+copynumber    | parsed          | Copy number %d                                                                                  | none      | none
+
+# This qualifier is added to provide a way to shift the reading frame
+#
+codon_start     | parsed        |                                                                                                 | none      | none
+
+promoter        | parsed        |                                                                                                 | none      | none
+LTR             | parsed        |                                                                                                 | none      | none
+
+# This qualifier allows the processing of trans-spliced genes
+trans-spliced   | parsed        | Trans-splicing                                                                                  | none      | none
+
+# This qualifier is followed by keywords that allow free-text extract
+# feature in new-pepper
+misc            | parsed        |                                                                                                 | none       | none
