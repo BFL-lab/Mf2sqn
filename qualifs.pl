@@ -8,23 +8,6 @@
 # qualifier $qual by accessing $main'OGMP_QUALS_TEXTS{$qual}.
 #
 #
-#    $Id: qualifs.pl,v 1.4 2011/02/14 14:48:57 nbeck Exp $
-#
-#    $Log: qualifs.pl,v $
-#    Revision 1.4  2011/02/14 14:48:57  nbeck
-#    Added verification for undef value.
-#
-#    Revision 1.3  2011/02/11 22:44:51  nbeck
-#    Fixed undef value in concatenation.
-#
-#    Revision 1.2  2009/07/02 14:37:25  nbeck
-#    Changed parsing of qualifiers list.
-#
-#    Revision 1.1  2009/07/02 14:05:48  nbeck
-#    First add to CVS.
-#
-#
-#
 
 package OGMP_Qualifs;
 
