@@ -4,6 +4,10 @@ This package is based on activities of the OGMP, and becomes open source as part
 
 ## Install
 
+# XXX
+MF2SQN_LIB should be set
+Can access to PirModels
+
 ## Usage
 
 ## Contributing
