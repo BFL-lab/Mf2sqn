@@ -16,7 +16,7 @@ In order to run mf2sqn you need:
 5. Define the `MF2SQN_LIB` environment variable in order to point on the `lib` directory.
 6. The `qualifs.pl` file should be in a directory accessible by your PERL5LIB search path. It can be a subdirectory of the user's home directory or more generally one of the directories specified by perl's @INC array. A way to check which directories your perl executable will search is to type "perl -V" and to have a look at the content of @INC. You can add directories to this list by setting your PERL5LIB environment variable (or simply PERLLIB in certain cases, be careful).
 
-**Note**: At this point the installation of `mf2sqn` was only tested on Unix system (Ubuntu and CentOS).
+**Note**: At this point the installation of `mf2sqn` was only tested on Unix systems (Ubuntu and CentOS).
 
 ## Usage
 
